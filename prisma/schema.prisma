@@ -11,3 +11,256 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// ---------- Enums ----------
+
+enum Role {
+  RENTER
+  OWNER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum DeviceStatus {
+  PENDING_APPROVAL
+  AVAILABLE
+  RENTED
+  UNAVAILABLE
+  REJECTED
+}
+
+enum DeviceCondition {
+  NEW
+  LIKE_NEW
+  GOOD
+  FAIR
+}
+
+enum RentalStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  ACTIVE
+  RETURNED
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum TransactionType {
+  RENTAL_PAYMENT
+  DEPOSIT_HOLD
+  DEPOSIT_REFUND
+  OWNER_PAYOUT
+  PLATFORM_FEE
+  DAMAGE_CHARGE
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum DamageStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+// ---------- Models ----------
+
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  phone        String?
+  avatarUrl    String?
+  location     String?
+  bio          String?
+  role         Role       @default(RENTER)
+  status       UserStatus @default(ACTIVE)
+  isVerified   Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  devices         Device[]
+  rentalsAsRenter Rental[]       @relation("RenterRentals")
+  rentalsAsOwner  Rental[]       @relation("OwnerRentals")
+  reviewsWritten  Review[]       @relation("ReviewAuthor")
+  reviewsReceived Review[]       @relation("ReviewTarget")
+  favorites       Favorite[]
+  notifications   Notification[]
+  reportsFiled    DamageReport[]
+  auditLogs       AuditLog[]
+}
+
+model Category {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  emoji   String?
+  devices Device[]
+}
+
+model Device {
+  id            String          @id @default(cuid())
+  ownerId       String
+  categoryId    String
+  name          String
+  description   String
+  brand         String?
+  condition     DeviceCondition @default(GOOD)
+  pricePerDay   Decimal         @db.Decimal(10, 2)
+  depositAmount Decimal         @db.Decimal(10, 2)
+  location      String
+  emoji         String?
+  status        DeviceStatus    @default(PENDING_APPROVAL)
+  avgRating     Float           @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  owner     User          @relation(fields: [ownerId], references: [id])
+  category  Category      @relation(fields: [categoryId], references: [id])
+  images    DeviceImage[]
+  rentals   Rental[]
+  reviews   Review[]
+  favorites Favorite[]
+
+  @@index([ownerId])
+  @@index([categoryId, status])
+}
+
+model DeviceImage {
+  id        String  @id @default(cuid())
+  deviceId  String
+  url       String
+  isPrimary Boolean @default(false)
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+}
+
+model Favorite {
+  userId    String
+  deviceId  String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@id([userId, deviceId])
+}
+
+model Rental {
+  id            String       @id @default(cuid())
+  deviceId      String
+  renterId      String
+  ownerId       String
+  startDate     DateTime
+  endDate       DateTime
+  totalDays     Int
+  pricePerDay   Decimal      @db.Decimal(10, 2)
+  rentalAmount  Decimal      @db.Decimal(10, 2)
+  depositAmount Decimal      @db.Decimal(10, 2)
+  totalAmount   Decimal      @db.Decimal(10, 2)
+  status        RentalStatus @default(REQUESTED)
+  renterNote    String?
+  rejectReason  String?
+  pickedUpAt    DateTime?
+  returnedAt    DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  device        Device         @relation(fields: [deviceId], references: [id])
+  renter        User           @relation("RenterRentals", fields: [renterId], references: [id])
+  owner         User           @relation("OwnerRentals", fields: [ownerId], references: [id])
+  transactions  Transaction[]
+  damageReports DamageReport[]
+  review        Review?
+
+  @@index([deviceId, startDate, endDate])
+  @@index([renterId])
+  @@index([ownerId])
+}
+
+model Transaction {
+  id        String            @id @default(cuid())
+  rentalId  String
+  type      TransactionType
+  amount    Decimal           @db.Decimal(10, 2)
+  currency  String            @default("THB")
+  status    TransactionStatus @default(PENDING)
+  reference String?
+  createdAt DateTime          @default(now())
+
+  rental Rental @relation(fields: [rentalId], references: [id])
+
+  @@index([rentalId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rentalId  String   @unique
+  deviceId  String
+  authorId  String
+  targetId  String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  rental Rental @relation(fields: [rentalId], references: [id])
+  device Device @relation(fields: [deviceId], references: [id])
+  author User   @relation("ReviewAuthor", fields: [authorId], references: [id])
+  target User   @relation("ReviewTarget", fields: [targetId], references: [id])
+}
+
+model DamageReport {
+  id            String       @id @default(cuid())
+  rentalId      String
+  reporterId    String
+  description   String
+  photoUrls     String[]
+  estimatedCost Decimal?     @db.Decimal(10, 2)
+  status        DamageStatus @default(OPEN)
+  resolution    String?
+  createdAt     DateTime     @default(now())
+  resolvedAt    DateTime?
+
+  rental   Rental @relation(fields: [rentalId], references: [id])
+  reporter User   @relation(fields: [reporterId], references: [id])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  link      String?
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+}

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import {
   ArrowRight,
@@ -12,7 +13,160 @@ import {
 
 import DeviceCard from "@/components/devices/DeviceCard";
 import Navbar from "@/components/layout/Navbar";
-import { devices } from "@/lib/mock-data";
+import { prisma } from "@/lib/prisma";
+
+async function HomeDeviceData() {
+  const devices = await prisma.device.findMany({
+    where: {
+      status: "AVAILABLE",
+    },
+    include: {
+      category: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    take: 6,
+  });
+
+  const trendingDevice = devices[0];
+
+  return (
+    <>
+      {/* HERO CARD */}
+      <div className="relative hidden lg:block">
+        <div className="rotate-3 rounded-[40px] bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 p-8 shadow-2xl shadow-orange-200">
+          <div className="rounded-[32px] bg-white p-7">
+            <div className="flex h-72 items-center justify-center rounded-[25px] bg-gradient-to-br from-yellow-50 to-orange-100">
+              <span className="text-[140px]">
+                {trendingDevice?.emoji ?? "📦"}
+              </span>
+            </div>
+
+            <div className="mt-6">
+              <p className="text-xs font-bold uppercase tracking-widest text-orange-500">
+                Trending now 🔥
+              </p>
+
+              <h2 className="mt-2 text-2xl font-black">
+                {trendingDevice?.name ?? "Popular tech"}
+              </h2>
+
+              <div className="mt-4 flex items-center justify-between">
+                <p className="font-black">
+                  ฿
+                  {trendingDevice
+                    ? Number(
+                        trendingDevice.pricePerDay,
+                      ).toLocaleString()
+                    : "0"}
+
+                  <span className="text-sm font-normal text-zinc-400">
+                    {" "}
+                    / day
+                  </span>
+                </p>
+
+                <span className="rounded-full bg-green-50 px-4 py-2 text-sm font-bold text-green-600">
+                  Available
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* FEATURED DEVICES */}
+      <section className="mx-auto max-w-7xl px-6 py-16">
+        <div className="mb-9">
+          <p className="font-bold text-orange-500">
+            POPULAR NEAR YOU
+          </p>
+
+          <div className="flex items-end justify-between">
+            <h2 className="mt-2 text-3xl font-black">
+              Tech worth borrowing.
+            </h2>
+
+            <Link
+              href="/devices"
+              className="hidden font-bold text-orange-500 md:block"
+            >
+              View everything →
+            </Link>
+          </div>
+        </div>
+
+        {devices.length > 0 ? (
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {devices.map((device) => (
+              <DeviceCard
+                key={device.id}
+                id={device.id}
+                name={device.name}
+                category={device.category.name}
+                price={Number(device.pricePerDay)}
+                location={device.location ?? "Unknown location"}
+                rating={device.avgRating}
+                emoji={device.emoji ?? "📦"}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-[30px] border border-dashed border-yellow-200 bg-white p-12 text-center">
+            <div className="text-5xl">📦</div>
+
+            <h3 className="mt-5 text-2xl font-black text-zinc-900">
+              No devices available yet
+            </h3>
+
+            <p className="mt-2 text-zinc-500">
+              New approved rentals will appear here.
+            </p>
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+function HeroDeviceLoading() {
+  return (
+    <div className="relative hidden lg:block">
+      <div className="rotate-3 rounded-[40px] bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 p-8">
+        <div className="rounded-[32px] bg-white p-7">
+          <div className="h-72 animate-pulse rounded-[25px] bg-yellow-50" />
+
+          <div className="mt-6">
+            <div className="h-3 w-28 animate-pulse rounded bg-zinc-100" />
+            <div className="mt-4 h-8 w-64 animate-pulse rounded bg-zinc-100" />
+            <div className="mt-4 h-5 w-28 animate-pulse rounded bg-zinc-100" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeaturedDevicesLoading() {
+  return (
+    <section className="mx-auto max-w-7xl px-6 py-16">
+      <div className="mb-9">
+        <div className="h-4 w-36 animate-pulse rounded bg-orange-100" />
+        <div className="mt-3 h-9 w-64 animate-pulse rounded bg-zinc-100" />
+      </div>
+
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {[1, 2, 3, 4, 5, 6].map((item) => (
+          <div
+            key={item}
+            className="h-80 animate-pulse rounded-[28px] bg-white"
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export default function Home() {
   return (
@@ -20,7 +174,6 @@ export default function Home() {
       <Navbar />
 
       {/* HERO */}
-
       <section className="relative overflow-hidden">
         <div className="absolute -left-40 top-10 h-96 w-96 rounded-full bg-yellow-300/30 blur-3xl" />
         <div className="absolute -right-40 top-40 h-96 w-96 rounded-full bg-orange-300/30 blur-3xl" />
@@ -35,9 +188,11 @@ export default function Home() {
             <h1 className="max-w-3xl text-5xl font-black leading-[1.05] tracking-tight text-zinc-900 md:text-7xl">
               Need it?
               <br />
+
               <span className="bg-gradient-to-r from-yellow-400 via-amber-500 to-orange-500 bg-clip-text text-transparent">
                 Rent it.
               </span>
+
               <br />
               Easy.
             </h1>
@@ -67,68 +222,45 @@ export default function Home() {
 
             <div className="mt-10 flex items-center gap-7 text-sm">
               <div>
-                <p className="text-2xl font-black">500+</p>
-                <p className="text-zinc-400">Devices</p>
+                <p className="text-2xl font-black">
+                  6+
+                </p>
+                <p className="text-zinc-400">
+                  Devices
+                </p>
               </div>
 
               <div className="h-10 w-px bg-zinc-200" />
 
               <div>
-                <p className="text-2xl font-black">1.2K+</p>
-                <p className="text-zinc-400">Renters</p>
+                <p className="text-2xl font-black">
+                  3
+                </p>
+                <p className="text-zinc-400">
+                  User roles
+                </p>
               </div>
 
               <div className="h-10 w-px bg-zinc-200" />
 
               <div>
-                <p className="text-2xl font-black">4.9 ★</p>
-                <p className="text-zinc-400">Community</p>
+                <p className="text-2xl font-black">
+                  4.9 ★
+                </p>
+                <p className="text-zinc-400">
+                  Community
+                </p>
               </div>
             </div>
           </div>
 
-          {/* HERO CARD */}
-
-          <div className="relative hidden lg:block">
-            <div className="rotate-3 rounded-[40px] bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 p-8 shadow-2xl shadow-orange-200">
-              <div className="rounded-[32px] bg-white p-7">
-                <div className="flex h-72 items-center justify-center rounded-[25px] bg-gradient-to-br from-yellow-50 to-orange-100">
-                  <span className="text-[140px]">
-                    📷
-                  </span>
-                </div>
-
-                <div className="mt-6">
-                  <p className="text-xs font-bold uppercase tracking-widest text-orange-500">
-                    Trending now 🔥
-                  </p>
-
-                  <h2 className="mt-2 text-2xl font-black">
-                    Sony A6400 Camera
-                  </h2>
-
-                  <div className="mt-4 flex items-center justify-between">
-                    <p className="font-black">
-                      ฿420
-                      <span className="text-sm font-normal text-zinc-400">
-                        {" "}
-                        / day
-                      </span>
-                    </p>
-
-                    <span className="rounded-full bg-green-50 px-4 py-2 text-sm font-bold text-green-600">
-                      Available
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <Suspense fallback={<HeroDeviceLoading />}>
+            <HomeHeroDevice />
+          </Suspense>
         </div>
       </section>
 
       {/* CATEGORIES */}
-
       <section className="mx-auto max-w-7xl px-6 py-16">
         <div className="mb-8 flex items-end justify-between">
           <div>
@@ -171,40 +303,11 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FEATURED */}
-
-      <section className="mx-auto max-w-7xl px-6 py-16">
-        <div className="mb-9">
-          <p className="font-bold text-orange-500">
-            POPULAR NEAR YOU
-          </p>
-
-          <div className="flex items-end justify-between">
-            <h2 className="mt-2 text-3xl font-black">
-              Tech worth borrowing.
-            </h2>
-
-            <Link
-              href="/devices"
-              className="hidden font-bold text-orange-500 md:block"
-            >
-              View everything →
-            </Link>
-          </div>
-        </div>
-
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {devices.slice(0, 6).map((device) => (
-            <DeviceCard
-              key={device.id}
-              {...device}
-            />
-          ))}
-        </div>
-      </section>
+      <Suspense fallback={<FeaturedDevicesLoading />}>
+        <FeaturedDevices />
+      </Suspense>
 
       {/* HOW IT WORKS */}
-
       <section
         id="how-it-works"
         className="mx-auto max-w-7xl px-6 py-20"
@@ -272,7 +375,10 @@ export default function Home() {
       <footer className="mt-20 border-t border-yellow-100 bg-white">
         <div className="mx-auto flex max-w-7xl flex-col justify-between gap-5 px-6 py-10 md:flex-row">
           <p className="font-black">
-            GoGo<span className="text-orange-500">Rent</span>
+            GoGo
+            <span className="text-orange-500">
+              Rent
+            </span>
           </p>
 
           <p className="text-sm text-zinc-400">
@@ -281,5 +387,133 @@ export default function Home() {
         </div>
       </footer>
     </main>
+  );
+}
+
+async function HomeHeroDevice() {
+  const device = await prisma.device.findFirst({
+    where: {
+      status: "AVAILABLE",
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+
+  return (
+    <div className="relative hidden lg:block">
+      <div className="rotate-3 rounded-[40px] bg-gradient-to-br from-yellow-300 via-amber-400 to-orange-500 p-8 shadow-2xl shadow-orange-200">
+        <div className="rounded-[32px] bg-white p-7">
+          <div className="flex h-72 items-center justify-center rounded-[25px] bg-gradient-to-br from-yellow-50 to-orange-100">
+            <span className="text-[140px]">
+              {device?.emoji ?? "📦"}
+            </span>
+          </div>
+
+          <div className="mt-6">
+            <p className="text-xs font-bold uppercase tracking-widest text-orange-500">
+              Trending now 🔥
+            </p>
+
+            <h2 className="mt-2 text-2xl font-black">
+              {device?.name ?? "Popular tech"}
+            </h2>
+
+            <div className="mt-4 flex items-center justify-between">
+              <p className="font-black">
+                ฿
+                {device
+                  ? Number(
+                      device.pricePerDay,
+                    ).toLocaleString()
+                  : "0"}
+
+                <span className="text-sm font-normal text-zinc-400">
+                  {" "}
+                  / day
+                </span>
+              </p>
+
+              <span className="rounded-full bg-green-50 px-4 py-2 text-sm font-bold text-green-600">
+                Available
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+async function FeaturedDevices() {
+  const devices = await prisma.device.findMany({
+    where: {
+      status: "AVAILABLE",
+    },
+    include: {
+      category: true,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    take: 6,
+  });
+
+  if (devices.length === 0) {
+    return (
+      <section className="mx-auto max-w-7xl px-6 py-16">
+        <div className="rounded-[30px] border border-dashed border-yellow-200 bg-white p-12 text-center">
+          <div className="text-5xl">
+            📦
+          </div>
+
+          <h3 className="mt-5 text-2xl font-black text-zinc-900">
+            No devices available yet
+          </h3>
+
+          <p className="mt-2 text-zinc-500">
+            New approved rentals will appear here.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="mx-auto max-w-7xl px-6 py-16">
+      <div className="mb-9">
+        <p className="font-bold text-orange-500">
+          POPULAR NEAR YOU
+        </p>
+
+        <div className="flex items-end justify-between">
+          <h2 className="mt-2 text-3xl font-black">
+            Tech worth borrowing.
+          </h2>
+
+          <Link
+            href="/devices"
+            className="hidden font-bold text-orange-500 md:block"
+          >
+            View everything →
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {devices.map((device) => (
+          <DeviceCard
+            key={device.id}
+            id={device.id}
+            name={device.name}
+            category={device.category.name}
+            price={Number(device.pricePerDay)}
+            location={device.location ?? "Unknown location"}
+            rating={device.avgRating}
+            emoji={device.emoji ?? "📦"}
+          />
+        ))}
+      </div>
+    </section>
   );
 }

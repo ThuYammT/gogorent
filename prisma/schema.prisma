@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../lib/generated/prisma"
@@ -10,4 +5,276 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Role {
+  RENTER
+  OWNER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum DeviceStatus {
+  PENDING_APPROVAL
+  AVAILABLE
+  RENTED
+  UNAVAILABLE
+  REJECTED
+}
+
+enum DeviceCondition {
+  NEW
+  LIKE_NEW
+  GOOD
+  FAIR
+}
+
+enum RentalStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  ACTIVE
+  RETURNED
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum TransactionType {
+  RENTAL_PAYMENT
+  DEPOSIT_HOLD
+  DEPOSIT_REFUND
+  OWNER_PAYOUT
+  PLATFORM_FEE
+  DAMAGE_CHARGE
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum DamageStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+model User {
+  id           String     @id @default(cuid())
+  name         String
+  email        String     @unique
+  passwordHash String
+  phone        String?
+  avatarUrl    String?
+  location     String?
+  bio          String?
+  role         Role       @default(RENTER)
+  status       UserStatus @default(ACTIVE)
+  isVerified   Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  devices       Device[]
+  rentals       Rental[]       @relation("RentalRenter")
+  ownedRentals  Rental[]       @relation("RentalOwner")
+  reviews       Review[]
+  favorites     Favorite[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  damageReports DamageReport[]
+}
+
+model Category {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  emoji   String?
+  devices Device[]
+}
+
+model Device {
+  id            String          @id @default(cuid())
+  ownerId       String
+  categoryId    String
+  name          String
+  description   String
+  brand         String?
+  model         String?
+  condition     DeviceCondition @default(GOOD)
+  pricePerDay   Decimal         @db.Decimal(10, 2)
+  depositAmount Decimal         @db.Decimal(10, 2)
+  location      String?
+  emoji         String?
+  status        DeviceStatus    @default(PENDING_APPROVAL)
+  avgRating     Float           @default(0)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  owner    User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
+  images    DeviceImage[]
+  rentals   Rental[]
+  reviews   Review[]
+  favorites Favorite[]
+
+  @@index([ownerId])
+  @@index([categoryId])
+  @@index([status])
+}
+
+model DeviceImage {
+  id        String   @id @default(cuid())
+  deviceId  String
+  url       String
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+}
+
+model Rental {
+  id            String       @id @default(cuid())
+  deviceId      String
+  renterId      String
+  ownerId       String
+  startDate     DateTime
+  endDate       DateTime
+  totalDays     Int
+  pricePerDay   Decimal      @db.Decimal(10, 2)
+  rentalAmount  Decimal      @db.Decimal(10, 2)
+  depositAmount Decimal      @db.Decimal(10, 2)
+  totalAmount   Decimal      @db.Decimal(10, 2)
+  status        RentalStatus @default(REQUESTED)
+  renterNote    String?
+  rejectReason  String?
+  pickedUpAt    DateTime?
+  returnedAt    DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  device Device @relation(fields: [deviceId], references: [id])
+  renter User   @relation("RentalRenter", fields: [renterId], references: [id])
+  owner  User   @relation("RentalOwner", fields: [ownerId], references: [id])
+
+  transactions  Transaction[]
+  damageReports DamageReport[]
+  review        Review?
+
+  @@index([deviceId])
+  @@index([renterId])
+  @@index([ownerId])
+  @@index([status])
+}
+
+model Transaction {
+  id         String            @id @default(cuid())
+  rentalId   String
+  type       TransactionType
+  amount     Decimal           @db.Decimal(10, 2)
+  status     TransactionStatus @default(PENDING)
+  paymentRef String?
+  createdAt  DateTime          @default(now())
+
+  rental Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  @@index([rentalId])
+  @@index([status])
+}
+
+model DamageReport {
+  id              String       @id @default(cuid())
+  rentalId        String
+  reporterId      String
+  description     String
+  estimatedCost   Decimal?     @db.Decimal(10, 2)
+  deductionAmount Decimal?     @db.Decimal(10, 2)
+  status          DamageStatus @default(OPEN)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  rental   Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  reporter User   @relation(fields: [reporterId], references: [id])
+
+  images DamageImage[]
+
+  @@index([rentalId])
+  @@index([reporterId])
+}
+
+model DamageImage {
+  id             String   @id @default(cuid())
+  damageReportId String
+  url            String
+  createdAt      DateTime @default(now())
+
+  damageReport DamageReport @relation(fields: [damageReportId], references: [id], onDelete: Cascade)
+
+  @@index([damageReportId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rentalId  String   @unique
+  deviceId  String
+  authorId  String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  rental Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([deviceId])
+  @@index([authorId])
+}
+
+model Favorite {
+  userId    String
+  deviceId  String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@id([userId, deviceId])
+  @@index([deviceId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
 }

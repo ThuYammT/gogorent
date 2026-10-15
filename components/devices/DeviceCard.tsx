@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 
 type DeviceCardProps = {
-  id: number;
+  id: string;
   name: string;
   category: string;
   price: number;

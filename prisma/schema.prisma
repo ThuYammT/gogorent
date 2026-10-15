@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client"
   output   = "../lib/generated/prisma"
@@ -11,8 +6,6 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
-
-// ---------- Enums ----------
 
 enum Role {
   RENTER
@@ -74,8 +67,6 @@ enum DamageStatus {
   DISMISSED
 }
 
-// ---------- Models ----------
-
 model User {
   id           String     @id @default(cuid())
   name         String
@@ -91,15 +82,14 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  devices         Device[]
-  rentalsAsRenter Rental[]       @relation("RenterRentals")
-  rentalsAsOwner  Rental[]       @relation("OwnerRentals")
-  reviewsWritten  Review[]       @relation("ReviewAuthor")
-  reviewsReceived Review[]       @relation("ReviewTarget")
-  favorites       Favorite[]
-  notifications   Notification[]
-  reportsFiled    DamageReport[]
-  auditLogs       AuditLog[]
+  devices       Device[]
+  rentals       Rental[]       @relation("RentalRenter")
+  ownedRentals  Rental[]       @relation("RentalOwner")
+  reviews       Review[]
+  favorites     Favorite[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  damageReports DamageReport[]
 }
 
 model Category {
@@ -116,45 +106,40 @@ model Device {
   name          String
   description   String
   brand         String?
+  model         String?
   condition     DeviceCondition @default(GOOD)
   pricePerDay   Decimal         @db.Decimal(10, 2)
   depositAmount Decimal         @db.Decimal(10, 2)
-  location      String
+  location      String?
   emoji         String?
   status        DeviceStatus    @default(PENDING_APPROVAL)
   avgRating     Float           @default(0)
   createdAt     DateTime        @default(now())
   updatedAt     DateTime        @updatedAt
 
-  owner     User          @relation(fields: [ownerId], references: [id])
-  category  Category      @relation(fields: [categoryId], references: [id])
+  owner    User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id])
+
   images    DeviceImage[]
   rentals   Rental[]
   reviews   Review[]
   favorites Favorite[]
 
   @@index([ownerId])
-  @@index([categoryId, status])
+  @@index([categoryId])
+  @@index([status])
 }
 
 model DeviceImage {
-  id        String  @id @default(cuid())
+  id        String   @id @default(cuid())
   deviceId  String
   url       String
-  isPrimary Boolean @default(false)
-
-  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-}
-
-model Favorite {
-  userId    String
-  deviceId  String
+  isPrimary Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
 
-  @@id([userId, deviceId])
+  @@index([deviceId])
 }
 
 model Rental {
@@ -177,31 +162,64 @@ model Rental {
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
-  device        Device         @relation(fields: [deviceId], references: [id])
-  renter        User           @relation("RenterRentals", fields: [renterId], references: [id])
-  owner         User           @relation("OwnerRentals", fields: [ownerId], references: [id])
+  device Device @relation(fields: [deviceId], references: [id])
+  renter User   @relation("RentalRenter", fields: [renterId], references: [id])
+  owner  User   @relation("RentalOwner", fields: [ownerId], references: [id])
+
   transactions  Transaction[]
   damageReports DamageReport[]
   review        Review?
 
-  @@index([deviceId, startDate, endDate])
+  @@index([deviceId])
   @@index([renterId])
   @@index([ownerId])
+  @@index([status])
 }
 
 model Transaction {
-  id        String            @id @default(cuid())
-  rentalId  String
-  type      TransactionType
-  amount    Decimal           @db.Decimal(10, 2)
-  currency  String            @default("THB")
-  status    TransactionStatus @default(PENDING)
-  reference String?
-  createdAt DateTime          @default(now())
+  id         String            @id @default(cuid())
+  rentalId   String
+  type       TransactionType
+  amount     Decimal           @db.Decimal(10, 2)
+  status     TransactionStatus @default(PENDING)
+  paymentRef String?
+  createdAt  DateTime          @default(now())
 
-  rental Rental @relation(fields: [rentalId], references: [id])
+  rental Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
 
   @@index([rentalId])
+  @@index([status])
+}
+
+model DamageReport {
+  id              String       @id @default(cuid())
+  rentalId        String
+  reporterId      String
+  description     String
+  estimatedCost   Decimal?     @db.Decimal(10, 2)
+  deductionAmount Decimal?     @db.Decimal(10, 2)
+  status          DamageStatus @default(OPEN)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  rental   Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  reporter User   @relation(fields: [reporterId], references: [id])
+
+  images DamageImage[]
+
+  @@index([rentalId])
+  @@index([reporterId])
+}
+
+model DamageImage {
+  id             String   @id @default(cuid())
+  damageReportId String
+  url            String
+  createdAt      DateTime @default(now())
+
+  damageReport DamageReport @relation(fields: [damageReportId], references: [id], onDelete: Cascade)
+
+  @@index([damageReportId])
 }
 
 model Review {
@@ -209,31 +227,29 @@ model Review {
   rentalId  String   @unique
   deviceId  String
   authorId  String
-  targetId  String
   rating    Int
   comment   String?
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  rental Rental @relation(fields: [rentalId], references: [id])
-  device Device @relation(fields: [deviceId], references: [id])
-  author User   @relation("ReviewAuthor", fields: [authorId], references: [id])
-  target User   @relation("ReviewTarget", fields: [targetId], references: [id])
+  rental Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([deviceId])
+  @@index([authorId])
 }
 
-model DamageReport {
-  id            String       @id @default(cuid())
-  rentalId      String
-  reporterId    String
-  description   String
-  photoUrls     String[]
-  estimatedCost Decimal?     @db.Decimal(10, 2)
-  status        DamageStatus @default(OPEN)
-  resolution    String?
-  createdAt     DateTime     @default(now())
-  resolvedAt    DateTime?
+model Favorite {
+  userId    String
+  deviceId  String
+  createdAt DateTime @default(now())
 
-  rental   Rental @relation(fields: [rentalId], references: [id])
-  reporter User   @relation(fields: [reporterId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@id([userId, deviceId])
+  @@index([deviceId])
 }
 
 model Notification {
@@ -241,26 +257,24 @@ model Notification {
   userId    String
   title     String
   message   String
-  link      String?
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId, isRead])
+  @@index([userId])
 }
 
 model AuditLog {
-  id         String   @id @default(cuid())
-  actorId    String?
-  action     String
-  entityType String
-  entityId   String
-  metadata   Json?
-  ipAddress  String?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  createdAt DateTime @default(now())
 
-  actor User? @relation(fields: [actorId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 
-  @@index([entityType, entityId])
+  @@index([userId])
 }

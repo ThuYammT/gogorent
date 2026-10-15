@@ -28,6 +28,12 @@ function dashboardPathForRole(role: "RENTER" | "OWNER" | "ADMIN") {
   }
 }
 
+export async function logoutAction() {
+  const cookieStore = await cookies();
+  cookieStore.delete("gogorent_session");
+  redirect("/login");
+}
+
 export async function loginAction(
   _prevState: LoginState,
   formData: FormData,

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
+import { requireOwner } from "@/lib/session";
 
 const allowedConditions = [
   "NEW",
@@ -15,33 +16,9 @@ const allowedConditions = [
 type DeviceConditionValue =
   (typeof allowedConditions)[number];
 
-export async function createDevice(
+function readDeviceForm(
   formData: FormData,
 ) {
-  /*
-   * TEMPORARY:
-   * Until authentication is finished, use the first
-   * active OWNER account in the database.
-   *
-   * Later this becomes:
-   * const ownerId = session.user.id
-   */
-  const owner = await prisma.user.findFirst({
-    where: {
-      role: "OWNER",
-      status: "ACTIVE",
-    },
-    orderBy: {
-      createdAt: "asc",
-    },
-  });
-
-  if (!owner) {
-    throw new Error(
-      "No active OWNER account exists. Create an owner account before adding a device.",
-    );
-  }
-
   const name = String(
     formData.get("name") ?? "",
   ).trim();
@@ -82,17 +59,22 @@ export async function createDevice(
     formData.get("emoji") ?? "",
   ).trim();
 
-  // Basic validation
   if (!name) {
-    throw new Error("Device name is required.");
+    throw new Error(
+      "Device name is required.",
+    );
   }
 
   if (!categoryId) {
-    throw new Error("Category is required.");
+    throw new Error(
+      "Category is required.",
+    );
   }
 
   if (!description) {
-    throw new Error("Description is required.");
+    throw new Error(
+      "Description is required.",
+    );
   }
 
   if (
@@ -100,7 +82,9 @@ export async function createDevice(
       conditionValue as DeviceConditionValue,
     )
   ) {
-    throw new Error("Invalid device condition.");
+    throw new Error(
+      "Invalid device condition.",
+    );
   }
 
   if (
@@ -117,11 +101,30 @@ export async function createDevice(
     depositAmount < 0
   ) {
     throw new Error(
-      "Deposit amount cannot be negative.",
+      "Security deposit cannot be negative.",
     );
   }
 
-  // Make sure category actually exists
+  return {
+    name,
+    categoryId,
+    description,
+    brand,
+    model,
+
+    condition:
+      conditionValue as DeviceConditionValue,
+
+    pricePerDay,
+    depositAmount,
+    location,
+    emoji,
+  };
+}
+
+async function validateCategory(
+  categoryId: string,
+) {
   const category =
     await prisma.category.findUnique({
       where: {
@@ -130,40 +133,269 @@ export async function createDevice(
     });
 
   if (!category) {
-    throw new Error("Category does not exist.");
+    throw new Error(
+      "Selected category does not exist.",
+    );
+  }
+}
+
+/* ======================================================
+   CREATE
+====================================================== */
+
+export async function createDevice(
+  formData: FormData,
+) {
+  const owner = await requireOwner();
+
+  const data =
+    readDeviceForm(formData);
+
+  await validateCategory(
+    data.categoryId,
+  );
+
+  const device =
+    await prisma.device.create({
+      data: {
+        ownerId: owner.id,
+
+        categoryId:
+          data.categoryId,
+
+        name: data.name,
+
+        description:
+          data.description,
+
+        brand:
+          data.brand || null,
+
+        model:
+          data.model || null,
+
+        condition:
+          data.condition,
+
+        pricePerDay:
+          data.pricePerDay,
+
+        depositAmount:
+          data.depositAmount,
+
+        location:
+          data.location || null,
+
+        emoji:
+          data.emoji || "📦",
+
+        status:
+          "PENDING_APPROVAL",
+
+        avgRating: 0,
+      },
+    });
+
+  revalidatePath(
+    "/owner/dashboard",
+  );
+
+  revalidatePath(
+    "/owner/devices",
+  );
+
+  revalidatePath(
+    "/devices",
+  );
+
+  revalidatePath("/");
+
+  redirect(
+    `/owner/devices/${device.id}`,
+  );
+}
+
+/* ======================================================
+   UPDATE
+====================================================== */
+
+export async function updateDevice(
+  deviceId: string,
+  formData: FormData,
+) {
+  const owner = await requireOwner();
+
+  const existingDevice =
+    await prisma.device.findFirst({
+      where: {
+        id: deviceId,
+
+        ownerId: owner.id,
+      },
+    });
+
+  if (!existingDevice) {
+    throw new Error(
+      "Device not found or you do not own this listing.",
+    );
   }
 
-  const device = await prisma.device.create({
+  if (
+    existingDevice.status ===
+    "RENTED"
+  ) {
+    throw new Error(
+      "A rented device cannot be edited.",
+    );
+  }
+
+  const data =
+    readDeviceForm(formData);
+
+  await validateCategory(
+    data.categoryId,
+  );
+
+  await prisma.device.update({
+    where: {
+      id: deviceId,
+    },
+
     data: {
-      ownerId: owner.id,
-      categoryId,
+      categoryId:
+        data.categoryId,
 
-      name,
-      description,
+      name:
+        data.name,
 
-      brand: brand || null,
-      model: model || null,
+      description:
+        data.description,
+
+      brand:
+        data.brand || null,
+
+      model:
+        data.model || null,
 
       condition:
-        conditionValue as DeviceConditionValue,
+        data.condition,
 
-      pricePerDay,
-      depositAmount,
+      pricePerDay:
+        data.pricePerDay,
 
-      location: location || null,
-      emoji: emoji || "📦",
+      depositAmount:
+        data.depositAmount,
 
-      // Owner cannot directly publish publicly.
-      // Admin will approve it later.
-      status: "PENDING_APPROVAL",
+      location:
+        data.location || null,
 
-      avgRating: 0,
+      emoji:
+        data.emoji || "📦",
+
+      /*
+       * Any edited listing must
+       * return to admin review.
+       */
+      status:
+        "PENDING_APPROVAL",
     },
   });
 
-  revalidatePath("/owner/devices");
-  revalidatePath("/devices");
+  revalidatePath(
+    `/owner/devices/${deviceId}`,
+  );
+
+  revalidatePath(
+    "/owner/dashboard",
+  );
+
+  revalidatePath(
+    "/owner/devices",
+  );
+
+  revalidatePath(
+    "/devices",
+  );
+
   revalidatePath("/");
 
-  redirect(`/owner/devices/${device.id}`);
+  redirect(
+    `/owner/devices/${deviceId}`,
+  );
+}
+
+/* ======================================================
+   DELETE
+====================================================== */
+
+export async function deleteDevice(
+  deviceId: string,
+) {
+  const owner = await requireOwner();
+
+  const device =
+    await prisma.device.findFirst({
+      where: {
+        id: deviceId,
+
+        ownerId: owner.id,
+      },
+
+      include: {
+        _count: {
+          select: {
+            rentals: true,
+          },
+        },
+      },
+    });
+
+  if (!device) {
+    throw new Error(
+      "Device not found or you do not own this listing.",
+    );
+  }
+
+  if (
+    device.status === "RENTED"
+  ) {
+    throw new Error(
+      "A rented device cannot be deleted.",
+    );
+  }
+
+  /*
+   * Keep historical rental records intact.
+   */
+  if (
+    device._count.rentals > 0
+  ) {
+    throw new Error(
+      "This device cannot be deleted because it has rental history.",
+    );
+  }
+
+  await prisma.device.delete({
+    where: {
+      id: deviceId,
+    },
+  });
+
+  revalidatePath(
+    "/owner/dashboard",
+  );
+
+  revalidatePath(
+    "/owner/devices",
+  );
+
+  revalidatePath(
+    "/devices",
+  );
+
+  revalidatePath("/");
+
+  redirect(
+    "/owner/devices",
+  );
 }

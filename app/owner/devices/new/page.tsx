@@ -11,18 +11,18 @@ async function NewDeviceContent() {
       },
     });
 
-  if (categories.length === 0) {
+  if (
+    categories.length === 0
+  ) {
     return (
-      <div className="rounded-[30px] border border-yellow-200 bg-white p-10">
-        <div className="text-5xl">📂</div>
-
-        <h1 className="mt-5 text-2xl font-black">
+      <div className="rounded-2xl border border-zinc-200 bg-white p-10">
+        <h1 className="text-xl font-semibold text-zinc-950">
           No categories available
         </h1>
 
-        <p className="mt-2 text-zinc-500">
-          At least one device category must exist before
-          an owner can create a listing.
+        <p className="mt-2 text-sm text-zinc-500">
+          At least one device category must
+          exist before creating a listing.
         </p>
       </div>
     );
@@ -33,8 +33,12 @@ async function NewDeviceContent() {
       categories={categories.map(
         (category) => ({
           id: category.id,
-          name: category.name,
-          emoji: category.emoji,
+
+          name:
+            category.name,
+
+          emoji:
+            category.emoji,
         }),
       )}
     />
@@ -43,26 +47,22 @@ async function NewDeviceContent() {
 
 function NewDeviceLoading() {
   return (
-    <div>
-      <div className="h-8 w-40 animate-pulse rounded bg-zinc-100" />
+    <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="h-[700px] animate-pulse rounded-2xl bg-white" />
 
-      <div className="mt-6 h-12 w-80 animate-pulse rounded bg-zinc-100" />
-
-      <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_360px]">
-        <div className="h-[700px] animate-pulse rounded-[30px] bg-white" />
-
-        <div className="h-[350px] animate-pulse rounded-[30px] bg-white" />
-      </div>
+      <div className="h-[350px] animate-pulse rounded-2xl bg-white" />
     </div>
   );
 }
 
 export default function NewDevicePage() {
   return (
-    <div className="px-6 py-10">
-      <div className="mx-auto max-w-7xl">
+    <div className="px-6 py-8 md:px-10 xl:px-12">
+      <div className="mx-auto max-w-[1400px]">
         <Suspense
-          fallback={<NewDeviceLoading />}
+          fallback={
+            <NewDeviceLoading />
+          }
         >
           <NewDeviceContent />
         </Suspense>

@@ -1,15 +1,20 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+
 import {
   ArrowLeft,
   BadgeDollarSign,
   Clock3,
   MapPin,
+  Pencil,
   ShieldCheck,
 } from "lucide-react";
 
+import DeleteDeviceButton from "@/components/owner/DeleteDeviceButton";
+
 import { prisma } from "@/lib/prisma";
+import { requireOwner } from "@/lib/session";
 
 type OwnerDevicePageProps = {
   params: Promise<{
@@ -17,40 +22,50 @@ type OwnerDevicePageProps = {
   }>;
 };
 
-function formatStatus(status: string) {
+function formatStatus(
+  status: string,
+) {
   return status
     .replaceAll("_", " ")
     .toLowerCase()
-    .replace(/\b\w/g, (letter) =>
-      letter.toUpperCase(),
+    .replace(
+      /\b\w/g,
+      (letter) =>
+        letter.toUpperCase(),
     );
 }
 
-function formatCondition(condition: string) {
+function formatCondition(
+  condition: string,
+) {
   return condition
     .replaceAll("_", " ")
     .toLowerCase()
-    .replace(/\b\w/g, (letter) =>
-      letter.toUpperCase(),
+    .replace(
+      /\b\w/g,
+      (letter) =>
+        letter.toUpperCase(),
     );
 }
 
-function statusStyle(status: string) {
+function statusStyle(
+  status: string,
+) {
   switch (status) {
     case "AVAILABLE":
-      return "bg-green-100 text-green-700";
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
 
     case "PENDING_APPROVAL":
-      return "bg-yellow-100 text-yellow-700";
+      return "border-amber-200 bg-amber-50 text-amber-700";
 
     case "RENTED":
-      return "bg-blue-100 text-blue-700";
+      return "border-blue-200 bg-blue-50 text-blue-700";
 
     case "REJECTED":
-      return "bg-red-100 text-red-700";
+      return "border-red-200 bg-red-50 text-red-700";
 
     default:
-      return "bg-zinc-100 text-zinc-600";
+      return "border-zinc-200 bg-zinc-100 text-zinc-600";
   }
 }
 
@@ -59,137 +74,173 @@ async function OwnerDeviceContent({
 }: OwnerDevicePageProps) {
   const { id } = await params;
 
-  /*
-   * TEMPORARY.
-   * Replace this with authenticated user ID later.
-   */
-  const owner = await prisma.user.findFirst({
-    where: {
-      role: "OWNER",
-      status: "ACTIVE",
-    },
-    orderBy: {
-      createdAt: "asc",
-    },
-  });
+  const owner =
+    await requireOwner();
 
-  if (!owner) {
-    notFound();
-  }
+  const device =
+    await prisma.device.findFirst({
+      where: {
+        id,
 
-  const device = await prisma.device.findFirst({
-    where: {
-      id,
-      ownerId: owner.id,
-    },
-    include: {
-      category: true,
-    },
-  });
+        ownerId:
+          owner.id,
+      },
+
+      include: {
+        category: true,
+
+        _count: {
+          select: {
+            rentals: true,
+          },
+        },
+      },
+    });
 
   if (!device) {
     notFound();
   }
 
+  const canEdit =
+    device.status !== "RENTED";
+
+  const canDelete =
+    device.status !== "RENTED" &&
+    device._count.rentals === 0;
+
   return (
     <div>
-      <Link
-        href="/owner/devices"
-        className="inline-flex items-center gap-2 text-sm font-bold text-zinc-500 transition hover:text-orange-500"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to My Devices
-      </Link>
-
-      <div className="mt-8 grid gap-8 lg:grid-cols-[1.2fr_.8fr]">
-        {/* LEFT */}
+      {/* TOP */}
+      <div className="mb-7 flex flex-col justify-between gap-4 border-b border-zinc-200 pb-7 sm:flex-row sm:items-center">
         <div>
-          <div className="flex min-h-[440px] items-center justify-center rounded-[40px] bg-gradient-to-br from-yellow-100 via-amber-50 to-orange-100">
-            <span className="text-[170px]">
-              {device.emoji ?? "📦"}
+          <Link
+            href="/owner/devices"
+            className="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 transition hover:text-zinc-900"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            My Devices
+          </Link>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-semibold tracking-tight text-zinc-950">
+              {device.name}
+            </h1>
+
+            <span
+              className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${statusStyle(
+                device.status,
+              )}`}
+            >
+              {formatStatus(
+                device.status,
+              )}
             </span>
           </div>
 
-          <div className="mt-8 rounded-[30px] bg-white p-7">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div>
-                <p className="text-sm font-black uppercase tracking-wider text-orange-500">
-                  {device.category.name}
-                </p>
+          <p className="mt-2 text-sm text-zinc-500">
+            Listing details and management
+          </p>
+        </div>
 
-                <h1 className="mt-2 text-4xl font-black">
-                  {device.name}
-                </h1>
-              </div>
+        {canEdit && (
+          <Link
+            href={`/owner/devices/${device.id}/edit`}
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800"
+          >
+            <Pencil className="h-4 w-4" />
+            Edit listing
+          </Link>
+        )}
+      </div>
 
-              <span
-                className={`rounded-full px-4 py-2 text-xs font-black ${statusStyle(
-                  device.status,
-                )}`}
-              >
-                {formatStatus(device.status)}
+      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+        {/* MAIN */}
+        <div className="space-y-6">
+          {/* DEVICE VISUAL */}
+          <section className="rounded-2xl border border-zinc-200 bg-white">
+            <div className="flex min-h-[350px] items-center justify-center rounded-t-2xl bg-zinc-50">
+              <span className="text-[130px]">
+                {device.emoji ??
+                  "📦"}
               </span>
             </div>
 
-            <p className="mt-6 leading-8 text-zinc-500">
-              {device.description}
-            </p>
+            <div className="p-6">
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-600">
+                {device.category.name}
+              </p>
 
-            <div className="mt-8 grid gap-4 sm:grid-cols-3">
-              <div className="rounded-2xl bg-zinc-50 p-5">
-                <p className="text-xs font-bold uppercase text-zinc-400">
+              <h2 className="mt-2 text-2xl font-semibold text-zinc-950">
+                {device.name}
+              </h2>
+
+              <p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-600">
+                {device.description}
+              </p>
+            </div>
+          </section>
+
+          {/* INFORMATION */}
+          <section className="rounded-2xl border border-zinc-200 bg-white p-6">
+            <h2 className="text-base font-semibold text-zinc-950">
+              Product information
+            </h2>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <div className="rounded-xl border border-zinc-200 p-4">
+                <p className="text-xs font-medium text-zinc-500">
                   Brand
                 </p>
 
-                <p className="mt-2 font-black">
-                  {device.brand ?? "Not specified"}
+                <p className="mt-2 text-sm font-semibold text-zinc-900">
+                  {device.brand ??
+                    "Not specified"}
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-zinc-50 p-5">
-                <p className="text-xs font-bold uppercase text-zinc-400">
+              <div className="rounded-xl border border-zinc-200 p-4">
+                <p className="text-xs font-medium text-zinc-500">
                   Model
                 </p>
 
-                <p className="mt-2 font-black">
-                  {device.model ?? "Not specified"}
+                <p className="mt-2 text-sm font-semibold text-zinc-900">
+                  {device.model ??
+                    "Not specified"}
                 </p>
               </div>
 
-              <div className="rounded-2xl bg-zinc-50 p-5">
-                <p className="text-xs font-bold uppercase text-zinc-400">
+              <div className="rounded-xl border border-zinc-200 p-4">
+                <p className="text-xs font-medium text-zinc-500">
                   Condition
                 </p>
 
-                <p className="mt-2 font-black">
+                <p className="mt-2 text-sm font-semibold text-zinc-900">
                   {formatCondition(
                     device.condition,
                   )}
                 </p>
               </div>
             </div>
-          </div>
+          </section>
         </div>
 
-        {/* RIGHT */}
-        <aside>
-          <div className="sticky top-28 rounded-[30px] bg-white p-7 shadow-sm">
-            <h2 className="text-xl font-black">
-              Listing details
+        {/* SIDEBAR */}
+        <aside className="space-y-5">
+          <section className="rounded-2xl border border-zinc-200 bg-white p-6">
+            <h2 className="text-base font-semibold text-zinc-950">
+              Listing information
             </h2>
 
-            <div className="mt-7 space-y-5">
-              <div className="flex items-center gap-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
-                  <BadgeDollarSign className="h-5 w-5 text-green-600" />
-                </div>
+            <div className="mt-6 space-y-5">
+              <div className="flex gap-3">
+                <BadgeDollarSign className="mt-0.5 h-5 w-5 text-zinc-400" />
 
                 <div>
-                  <p className="text-xs text-zinc-400">
-                    Price per day
+                  <p className="text-xs text-zinc-500">
+                    Daily rate
                   </p>
 
-                  <p className="font-black">
+                  <p className="mt-1 text-sm font-semibold">
                     ฿
                     {Number(
                       device.pricePerDay,
@@ -198,17 +249,15 @@ async function OwnerDeviceContent({
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-yellow-100">
-                  <ShieldCheck className="h-5 w-5 text-orange-500" />
-                </div>
+              <div className="flex gap-3">
+                <ShieldCheck className="mt-0.5 h-5 w-5 text-zinc-400" />
 
                 <div>
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs text-zinc-500">
                     Security deposit
                   </p>
 
-                  <p className="font-black">
+                  <p className="mt-1 text-sm font-semibold">
                     ฿
                     {Number(
                       device.depositAmount,
@@ -217,34 +266,30 @@ async function OwnerDeviceContent({
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-100">
-                  <MapPin className="h-5 w-5 text-orange-500" />
-                </div>
+              <div className="flex gap-3">
+                <MapPin className="mt-0.5 h-5 w-5 text-zinc-400" />
 
                 <div>
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs text-zinc-500">
                     Location
                   </p>
 
-                  <p className="font-black">
+                  <p className="mt-1 text-sm font-semibold">
                     {device.location ??
                       "Not specified"}
                   </p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-100">
-                  <Clock3 className="h-5 w-5 text-zinc-500" />
-                </div>
+              <div className="flex gap-3">
+                <Clock3 className="mt-0.5 h-5 w-5 text-zinc-400" />
 
                 <div>
-                  <p className="text-xs text-zinc-400">
+                  <p className="text-xs text-zinc-500">
                     Submitted
                   </p>
 
-                  <p className="font-black">
+                  <p className="mt-1 text-sm font-semibold">
                     {device.createdAt.toLocaleDateString()}
                   </p>
                 </div>
@@ -253,19 +298,60 @@ async function OwnerDeviceContent({
 
             {device.status ===
               "PENDING_APPROVAL" && (
-              <div className="mt-7 rounded-2xl bg-yellow-50 p-4">
-                <p className="text-sm font-bold text-yellow-700">
-                  Waiting for approval
+              <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-semibold text-amber-800">
+                  Pending review
                 </p>
 
-                <p className="mt-1 text-xs leading-5 text-yellow-700/70">
-                  This listing will become visible to
-                  renters after an administrator approves
-                  it.
+                <p className="mt-1 text-xs leading-5 text-amber-700">
+                  Your listing is waiting for
+                  administrator approval.
                 </p>
               </div>
             )}
-          </div>
+
+            {device.status ===
+              "REJECTED" && (
+              <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4">
+                <p className="text-sm font-semibold text-red-700">
+                  Listing rejected
+                </p>
+
+                <p className="mt-1 text-xs leading-5 text-red-600">
+                  Update the listing and submit
+                  it for review again.
+                </p>
+              </div>
+            )}
+          </section>
+
+          {/* DANGER */}
+          <section className="rounded-2xl border border-zinc-200 bg-white p-6">
+            <h2 className="text-sm font-semibold text-zinc-950">
+              Listing management
+            </h2>
+
+            <p className="mt-1 text-xs leading-5 text-zinc-500">
+              Permanently remove this product from
+              GoGoRent.
+            </p>
+
+            <div className="mt-4">
+              {canDelete ? (
+                <DeleteDeviceButton
+                  deviceId={
+                    device.id
+                  }
+                />
+              ) : (
+                <div className="rounded-lg bg-zinc-100 px-4 py-3 text-xs leading-5 text-zinc-500">
+                  This device cannot be deleted
+                  while rented or when rental
+                  history exists.
+                </div>
+              )}
+            </div>
+          </section>
         </aside>
       </div>
     </div>
@@ -274,14 +360,10 @@ async function OwnerDeviceContent({
 
 function OwnerDeviceLoading() {
   return (
-    <div className="mt-8 grid gap-8 lg:grid-cols-[1.2fr_.8fr]">
-      <div>
-        <div className="h-[440px] animate-pulse rounded-[40px] bg-yellow-50" />
+    <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
+      <div className="h-[600px] animate-pulse rounded-2xl bg-white" />
 
-        <div className="mt-8 h-72 animate-pulse rounded-[30px] bg-white" />
-      </div>
-
-      <div className="h-[400px] animate-pulse rounded-[30px] bg-white" />
+      <div className="h-[450px] animate-pulse rounded-2xl bg-white" />
     </div>
   );
 }
@@ -290,10 +372,12 @@ export default function OwnerDevicePage({
   params,
 }: OwnerDevicePageProps) {
   return (
-    <div className="px-6 py-10">
-      <div className="mx-auto max-w-7xl">
+    <div className="px-6 py-8 md:px-10 xl:px-12">
+      <div className="mx-auto max-w-[1400px]">
         <Suspense
-          fallback={<OwnerDeviceLoading />}
+          fallback={
+            <OwnerDeviceLoading />
+          }
         >
           <OwnerDeviceContent
             params={params}

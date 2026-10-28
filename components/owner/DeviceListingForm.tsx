@@ -1,15 +1,29 @@
+"use client";
+
+import {
+  ChangeEvent,
+  useEffect,
+  useState,
+} from "react";
+
 import Link from "next/link";
+
 import {
   ArrowLeft,
   BadgeDollarSign,
   Box,
+  Check,
+  ImagePlus,
   MapPin,
   ShieldCheck,
-  Sparkles,
+  Star,
+  Trash2,
 } from "lucide-react";
 
 import {
   createDevice,
+  deleteDeviceImage,
+  setPrimaryDeviceImage,
   updateDevice,
 } from "@/actions/devices";
 
@@ -17,6 +31,12 @@ type Category = {
   id: string;
   name: string;
   emoji: string | null;
+};
+
+type ExistingImage = {
+  id: string;
+  url: string;
+  isPrimary: boolean;
 };
 
 type EditableDevice = {
@@ -40,6 +60,8 @@ type EditableDevice = {
 
   location: string | null;
   emoji: string | null;
+
+  images?: ExistingImage[];
 };
 
 type DeviceListingFormProps = {
@@ -50,93 +72,462 @@ type DeviceListingFormProps = {
   device?: EditableDevice;
 };
 
+const inputClass =
+  "w-full rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-zinc-400 focus:ring-2 focus:ring-zinc-100";
+
+const labelClass =
+  "mb-2 block text-sm font-medium text-zinc-700";
+
 export default function DeviceListingForm({
   categories,
   mode = "create",
   device,
 }: DeviceListingFormProps) {
-  const isEdit = mode === "edit";
+  const isEdit =
+    mode === "edit";
 
-  if (isEdit && !device) {
+  if (
+    isEdit &&
+    !device
+  ) {
     throw new Error(
       "Device data is required in edit mode.",
     );
   }
 
+  const existingImages =
+    device?.images ?? [];
+
+  const existingImageCount =
+    existingImages.length;
+
+  const remainingSlots =
+    Math.max(
+      0,
+      5 -
+        existingImageCount,
+    );
+
+  const [previewUrls, setPreviewUrls] =
+    useState<
+      string[]
+    >([]);
+
+  const [
+    imageError,
+    setImageError,
+  ] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    return () => {
+      previewUrls.forEach(
+        (url) =>
+          URL.revokeObjectURL(
+            url,
+          ),
+      );
+    };
+  }, [previewUrls]);
+
+  function handleImagesChange(
+    event: ChangeEvent<HTMLInputElement>,
+  ) {
+    previewUrls.forEach(
+      (url) =>
+        URL.revokeObjectURL(
+          url,
+        ),
+    );
+
+    const files =
+      Array.from(
+        event.target.files ??
+          [],
+      );
+
+    if (
+      files.length >
+      remainingSlots
+    ) {
+      setImageError(
+        `You can add ${remainingSlots} more image${
+          remainingSlots === 1
+            ? ""
+            : "s"
+        }.`,
+      );
+
+      event.target.value =
+        "";
+
+      setPreviewUrls(
+        [],
+      );
+
+      return;
+    }
+
+    const invalidFile =
+      files.find(
+        (file) =>
+          ![
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+          ].includes(
+            file.type,
+          ),
+      );
+
+    if (invalidFile) {
+      setImageError(
+        "Only JPG, PNG and WEBP images are supported.",
+      );
+
+      event.target.value =
+        "";
+
+      setPreviewUrls(
+        [],
+      );
+
+      return;
+    }
+
+    const oversizedFile =
+      files.find(
+        (file) =>
+          file.size >
+          5 *
+            1024 *
+            1024,
+      );
+
+    if (oversizedFile) {
+      setImageError(
+        `${oversizedFile.name} exceeds the 5 MB limit.`,
+      );
+
+      event.target.value =
+        "";
+
+      setPreviewUrls(
+        [],
+      );
+
+      return;
+    }
+
+    setImageError(null);
+
+    setPreviewUrls(
+      files.map((file) =>
+        URL.createObjectURL(
+          file,
+        ),
+      ),
+    );
+  }
+
   const formAction =
-    isEdit && device
-      ? updateDevice.bind(null, device.id)
+    isEdit &&
+    device
+      ? updateDevice.bind(
+          null,
+          device.id,
+        )
       : createDevice;
+
+  const cancelHref =
+    isEdit &&
+    device
+      ? `/owner/devices/${device.id}`
+      : "/owner/devices";
 
   return (
     <div>
       <Link
-        href={
-          isEdit && device
-            ? `/owner/devices/${device.id}`
-            : "/owner/devices"
-        }
-        className="inline-flex items-center gap-2 text-sm font-bold text-zinc-500 transition hover:text-orange-500"
+        href={cancelHref}
+        className="inline-flex items-center gap-2 text-sm font-medium text-zinc-500 transition hover:text-zinc-950"
       >
         <ArrowLeft className="h-4 w-4" />
 
         {isEdit
-          ? "Back to Listing"
-          : "Back to My Devices"}
+          ? "Back to listing"
+          : "Back to devices"}
       </Link>
 
-      <div className="mt-6">
-        <span className="inline-flex items-center gap-2 rounded-full bg-yellow-100 px-4 py-2 text-sm font-bold text-orange-600">
-          <Sparkles className="h-4 w-4" />
-
+      {/* HEADER */}
+      <div className="mt-6 border-b border-zinc-200 pb-7">
+        <p className="text-sm font-medium text-zinc-500">
           {isEdit
-            ? "Edit Listing"
-            : "New Listing"}
-        </span>
+            ? "Listing management"
+            : "Inventory management"}
+        </p>
 
-        <h1 className="mt-5 text-4xl font-black text-zinc-900">
+        <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">
           {isEdit
-            ? "Update your device."
-            : "List your device."}
+            ? "Edit device"
+            : "Add new device"}
         </h1>
 
-        <p className="mt-3 max-w-2xl text-zinc-500">
+        <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-500">
           {isEdit
-            ? "Update your device information. Changes will be sent for admin approval again."
-            : "Tell renters about your device. Your listing will be reviewed before it becomes publicly available."}
+            ? "Update your listing details and photos. Changes will return the listing to administrator review."
+            : "Create a professional listing for your device. It will be reviewed before becoming publicly available."}
         </p>
       </div>
 
+      {/* EXISTING PHOTOS */}
+      {isEdit &&
+        existingImages.length >
+          0 && (
+          <section className="mt-8 rounded-2xl border border-zinc-200 bg-white">
+            <div className="border-b border-zinc-100 px-6 py-5">
+              <h2 className="text-sm font-semibold text-zinc-950">
+                Current photos
+              </h2>
+
+              <p className="mt-1 text-xs text-zinc-500">
+                Choose the cover image or remove photos from this listing.
+              </p>
+            </div>
+
+            <div className="grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3">
+              {existingImages.map(
+                (
+                  image,
+                ) => {
+                  const deleteAction =
+                    deleteDeviceImage.bind(
+                      null,
+                      image.id,
+                    );
+
+                  const primaryAction =
+                    setPrimaryDeviceImage.bind(
+                      null,
+                      image.id,
+                    );
+
+                  return (
+                    <div
+                      key={
+                        image.id
+                      }
+                      className="overflow-hidden rounded-xl border border-zinc-200 bg-zinc-50"
+                    >
+                      <div className="relative aspect-[4/3] overflow-hidden bg-zinc-100">
+                        <img
+                          src={
+                            image.url
+                          }
+                          alt="Device"
+                          className="h-full w-full object-cover"
+                        />
+
+                        {image.isPrimary && (
+                          <div className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-md bg-zinc-950 px-2 py-1 text-[10px] font-semibold text-white">
+                            <Star className="h-3 w-3" />
+                            Cover
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex gap-2 p-3">
+                        {!image.isPrimary && (
+                          <form
+                            action={
+                              primaryAction
+                            }
+                            className="flex-1"
+                          >
+                            <button
+                              type="submit"
+                              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-100"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                              Set cover
+                            </button>
+                          </form>
+                        )}
+
+                        <form
+                          action={
+                            deleteAction
+                          }
+                          className={
+                            image.isPrimary
+                              ? "w-full"
+                              : ""
+                          }
+                        >
+                          <button
+                            type="submit"
+                            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Remove
+                          </button>
+                        </form>
+                      </div>
+                    </div>
+                  );
+                },
+              )}
+            </div>
+          </section>
+        )}
+
+      {/* MAIN FORM */}
       <form
         action={formAction}
-        className="mt-10 grid gap-8 lg:grid-cols-[1fr_360px]"
+        className="mt-8 grid gap-6 xl:grid-cols-[1fr_340px]"
       >
-        {/* LEFT */}
-        <div className="space-y-7">
-          {/* DEVICE INFORMATION */}
-          <section className="rounded-[30px] bg-white p-7 shadow-sm">
-            <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-yellow-100">
-                <Box className="h-5 w-5 text-orange-500" />
+        <div className="space-y-6">
+          {/* IMAGE UPLOAD */}
+          <section className="rounded-2xl border border-zinc-200 bg-white">
+            <div className="flex items-center gap-3 border-b border-zinc-100 px-6 py-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100">
+                <ImagePlus className="h-4 w-4 text-zinc-600" />
               </div>
 
               <div>
-                <h2 className="font-black">
+                <h2 className="text-sm font-semibold text-zinc-950">
+                  Device photos
+                </h2>
+
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Add clear photos that accurately represent the device.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6">
+              {previewUrls.length >
+                0 && (
+                <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-3">
+                  {previewUrls.map(
+                    (
+                      url,
+                      index,
+                    ) => (
+                      <div
+                        key={
+                          url
+                        }
+                        className="relative aspect-[4/3] overflow-hidden rounded-xl border border-zinc-200 bg-zinc-100"
+                      >
+                        <img
+                          src={
+                            url
+                          }
+                          alt={`Selected image ${
+                            index +
+                            1
+                          }`}
+                          className="h-full w-full object-cover"
+                        />
+
+                        {existingImageCount ===
+                          0 &&
+                          index ===
+                            0 && (
+                            <span className="absolute left-2 top-2 rounded-md bg-zinc-950 px-2 py-1 text-[10px] font-semibold text-white">
+                              Cover
+                            </span>
+                          )}
+                      </div>
+                    ),
+                  )}
+                </div>
+              )}
+
+              {remainingSlots >
+              0 ? (
+                <label
+                  htmlFor="images"
+                  className="flex cursor-pointer flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 bg-zinc-50 px-6 py-10 text-center transition hover:border-zinc-400 hover:bg-zinc-100"
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white shadow-sm">
+                    <ImagePlus className="h-5 w-5 text-zinc-600" />
+                  </div>
+
+                  <p className="mt-3 text-sm font-semibold text-zinc-800">
+                    Upload device photos
+                  </p>
+
+                  <p className="mt-1 text-xs text-zinc-500">
+                    JPG, PNG or WEBP · Max 5 MB each
+                  </p>
+
+                  <p className="mt-1 text-xs text-zinc-400">
+                    {remainingSlots} photo
+                    {remainingSlots ===
+                    1
+                      ? ""
+                      : "s"}{" "}
+                    remaining
+                  </p>
+
+                  <input
+                    id="images"
+                    name="images"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    multiple
+                    onChange={
+                      handleImagesChange
+                    }
+                    className="hidden"
+                  />
+                </label>
+              ) : (
+                <div className="rounded-xl bg-zinc-50 px-5 py-4 text-sm text-zinc-500">
+                  Maximum of 5 photos reached.
+                </div>
+              )}
+
+              {imageError && (
+                <p className="mt-3 text-sm font-medium text-red-600">
+                  {imageError}
+                </p>
+              )}
+
+              <p className="mt-3 text-xs leading-5 text-zinc-400">
+                The first photo uploaded to a new listing becomes the cover image.
+                You can change the cover later.
+              </p>
+            </div>
+          </section>
+
+          {/* INFORMATION */}
+          <section className="rounded-2xl border border-zinc-200 bg-white">
+            <div className="flex items-center gap-3 border-b border-zinc-100 px-6 py-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100">
+                <Box className="h-4 w-4 text-zinc-600" />
+              </div>
+
+              <div>
+                <h2 className="text-sm font-semibold text-zinc-950">
                   Device information
                 </h2>
 
-                <p className="text-sm text-zinc-400">
+                <p className="mt-0.5 text-xs text-zinc-500">
                   Basic information about your item.
                 </p>
               </div>
             </div>
 
-            <div className="space-y-5">
-              {/* NAME */}
+            <div className="space-y-5 p-6">
               <div>
                 <label
                   htmlFor="name"
-                  className="mb-2 block text-sm font-bold"
+                  className={
+                    labelClass
+                  }
                 >
                   Device name *
                 </label>
@@ -144,61 +535,126 @@ export default function DeviceListingForm({
                 <input
                   id="name"
                   name="name"
-                  type="text"
                   required
                   defaultValue={
-                    device?.name ?? ""
+                    device?.name ??
+                    ""
                   }
                   placeholder="e.g. Sony A6400"
-                  className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-5 py-4 outline-none transition focus:border-orange-400 focus:bg-white"
+                  className={
+                    inputClass
+                  }
                 />
               </div>
 
-              {/* CATEGORY */}
-              <div>
-                <label
-                  htmlFor="categoryId"
-                  className="mb-2 block text-sm font-bold"
-                >
-                  Category *
-                </label>
-
-                <select
-                  id="categoryId"
-                  name="categoryId"
-                  required
-                  defaultValue={
-                    device?.categoryId ?? ""
-                  }
-                  className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-5 py-4 outline-none transition focus:border-orange-400 focus:bg-white"
-                >
-                  <option
-                    value=""
-                    disabled
+              <div className="grid gap-5 md:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="categoryId"
+                    className={
+                      labelClass
+                    }
                   >
-                    Select a category
-                  </option>
+                    Category *
+                  </label>
 
-                  {categories.map(
-                    (category) => (
-                      <option
-                        key={category.id}
-                        value={category.id}
-                      >
-                        {category.emoji ??
-                          "📦"}{" "}
-                        {category.name}
-                      </option>
-                    ),
-                  )}
-                </select>
+                  <select
+                    id="categoryId"
+                    name="categoryId"
+                    required
+                    defaultValue={
+                      device?.categoryId ??
+                      ""
+                    }
+                    className={
+                      inputClass
+                    }
+                  >
+                    <option
+                      value=""
+                      disabled
+                    >
+                      Select category
+                    </option>
+
+                    {categories.map(
+                      (
+                        category,
+                      ) => (
+                        <option
+                          key={
+                            category.id
+                          }
+                          value={
+                            category.id
+                          }
+                        >
+                          {category.emoji
+                            ? `${category.emoji} `
+                            : ""}
+                          {
+                            category.name
+                          }
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="condition"
+                    className={
+                      labelClass
+                    }
+                  >
+                    Condition *
+                  </label>
+
+                  <select
+                    id="condition"
+                    name="condition"
+                    required
+                    defaultValue={
+                      device?.condition ??
+                      ""
+                    }
+                    className={
+                      inputClass
+                    }
+                  >
+                    <option
+                      value=""
+                      disabled
+                    >
+                      Select condition
+                    </option>
+
+                    <option value="NEW">
+                      New
+                    </option>
+
+                    <option value="LIKE_NEW">
+                      Like New
+                    </option>
+
+                    <option value="GOOD">
+                      Good
+                    </option>
+
+                    <option value="FAIR">
+                      Fair
+                    </option>
+                  </select>
+                </div>
               </div>
 
-              {/* DESCRIPTION */}
               <div>
                 <label
                   htmlFor="description"
-                  className="mb-2 block text-sm font-bold"
+                  className={
+                    labelClass
+                  }
                 >
                   Description *
                 </label>
@@ -209,19 +665,21 @@ export default function DeviceListingForm({
                   required
                   rows={6}
                   defaultValue={
-                    device?.description ?? ""
+                    device?.description ??
+                    ""
                   }
-                  placeholder="Describe your device, what it includes, and anything renters should know..."
-                  className="w-full resize-none rounded-2xl border border-zinc-200 bg-zinc-50 px-5 py-4 outline-none transition focus:border-orange-400 focus:bg-white"
+                  placeholder="Describe the device, accessories, condition and anything renters should know."
+                  className={`${inputClass} resize-none`}
                 />
               </div>
 
               <div className="grid gap-5 md:grid-cols-2">
-                {/* BRAND */}
                 <div>
                   <label
                     htmlFor="brand"
-                    className="mb-2 block text-sm font-bold"
+                    className={
+                      labelClass
+                    }
                   >
                     Brand
                   </label>
@@ -229,20 +687,23 @@ export default function DeviceListingForm({
                   <input
                     id="brand"
                     name="brand"
-                    type="text"
                     defaultValue={
-                      device?.brand ?? ""
+                      device?.brand ??
+                      ""
                     }
                     placeholder="e.g. Sony"
-                    className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-5 py-4 outline-none transition focus:border-orange-400 focus:bg-white"
+                    className={
+                      inputClass
+                    }
                   />
                 </div>
 
-                {/* MODEL */}
                 <div>
                   <label
                     htmlFor="model"
-                    className="mb-2 block text-sm font-bold"
+                    className={
+                      labelClass
+                    }
                   >
                     Model
                   </label>
@@ -250,92 +711,51 @@ export default function DeviceListingForm({
                   <input
                     id="model"
                     name="model"
-                    type="text"
                     defaultValue={
-                      device?.model ?? ""
+                      device?.model ??
+                      ""
                     }
                     placeholder="e.g. A6400"
-                    className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-5 py-4 outline-none transition focus:border-orange-400 focus:bg-white"
+                    className={
+                      inputClass
+                    }
                   />
                 </div>
-              </div>
-
-              {/* CONDITION */}
-              <div>
-                <label
-                  htmlFor="condition"
-                  className="mb-2 block text-sm font-bold"
-                >
-                  Condition *
-                </label>
-
-                <select
-                  id="condition"
-                  name="condition"
-                  required
-                  defaultValue={
-                    device?.condition ?? ""
-                  }
-                  className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-5 py-4 outline-none transition focus:border-orange-400 focus:bg-white"
-                >
-                  <option
-                    value=""
-                    disabled
-                  >
-                    Select condition
-                  </option>
-
-                  <option value="NEW">
-                    New
-                  </option>
-
-                  <option value="LIKE_NEW">
-                    Like New
-                  </option>
-
-                  <option value="GOOD">
-                    Good
-                  </option>
-
-                  <option value="FAIR">
-                    Fair
-                  </option>
-                </select>
               </div>
             </div>
           </section>
 
           {/* PRICING */}
-          <section className="rounded-[30px] bg-white p-7 shadow-sm">
-            <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-100">
-                <BadgeDollarSign className="h-5 w-5 text-green-600" />
+          <section className="rounded-2xl border border-zinc-200 bg-white">
+            <div className="flex items-center gap-3 border-b border-zinc-100 px-6 py-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100">
+                <BadgeDollarSign className="h-4 w-4 text-zinc-600" />
               </div>
 
               <div>
-                <h2 className="font-black">
+                <h2 className="text-sm font-semibold">
                   Pricing
                 </h2>
 
-                <p className="text-sm text-zinc-400">
-                  Set your rental price and security
-                  deposit.
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Rental rate and security deposit.
                 </p>
               </div>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-2">
-              {/* PRICE */}
+            <div className="grid gap-5 p-6 md:grid-cols-2">
               <div>
                 <label
                   htmlFor="pricePerDay"
-                  className="mb-2 block text-sm font-bold"
+                  className={
+                    labelClass
+                  }
                 >
                   Price per day *
                 </label>
 
                 <div className="relative">
-                  <span className="absolute left-5 top-1/2 -translate-y-1/2 font-bold text-zinc-400">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-400">
                     ฿
                   </span>
 
@@ -350,23 +770,23 @@ export default function DeviceListingForm({
                       device?.pricePerDay ??
                       ""
                     }
-                    placeholder="500"
-                    className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 py-4 pl-10 pr-5 outline-none transition focus:border-orange-400 focus:bg-white"
+                    className={`${inputClass} pl-9`}
                   />
                 </div>
               </div>
 
-              {/* DEPOSIT */}
               <div>
                 <label
                   htmlFor="depositAmount"
-                  className="mb-2 block text-sm font-bold"
+                  className={
+                    labelClass
+                  }
                 >
                   Security deposit *
                 </label>
 
                 <div className="relative">
-                  <span className="absolute left-5 top-1/2 -translate-y-1/2 font-bold text-zinc-400">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-zinc-400">
                     ฿
                   </span>
 
@@ -381,8 +801,7 @@ export default function DeviceListingForm({
                       device?.depositAmount ??
                       ""
                     }
-                    placeholder="3000"
-                    className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 py-4 pl-10 pr-5 outline-none transition focus:border-orange-400 focus:bg-white"
+                    className={`${inputClass} pl-9`}
                   />
                 </div>
               </div>
@@ -390,122 +809,110 @@ export default function DeviceListingForm({
           </section>
 
           {/* LOCATION */}
-          <section className="rounded-[30px] bg-white p-7 shadow-sm">
-            <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-orange-100">
-                <MapPin className="h-5 w-5 text-orange-500" />
+          <section className="rounded-2xl border border-zinc-200 bg-white">
+            <div className="flex items-center gap-3 border-b border-zinc-100 px-6 py-5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100">
+                <MapPin className="h-4 w-4 text-zinc-600" />
               </div>
 
               <div>
-                <h2 className="font-black">
-                  Location & display
+                <h2 className="text-sm font-semibold">
+                  Location
                 </h2>
 
-                <p className="text-sm text-zinc-400">
-                  Where renters can find your device.
+                <p className="mt-0.5 text-xs text-zinc-500">
+                  Where this device is available.
                 </p>
               </div>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-[1fr_150px]">
-              {/* LOCATION */}
-              <div>
-                <label
-                  htmlFor="location"
-                  className="mb-2 block text-sm font-bold"
-                >
-                  Location
-                </label>
+            <div className="p-6">
+              <label
+                htmlFor="location"
+                className={
+                  labelClass
+                }
+              >
+                Location
+              </label>
 
-                <input
-                  id="location"
-                  name="location"
-                  type="text"
-                  defaultValue={
-                    device?.location ?? ""
-                  }
-                  placeholder="e.g. Bangkok"
-                  className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-5 py-4 outline-none transition focus:border-orange-400 focus:bg-white"
-                />
-              </div>
+              <input
+                id="location"
+                name="location"
+                defaultValue={
+                  device?.location ??
+                  ""
+                }
+                placeholder="e.g. Bangkok"
+                className={
+                  inputClass
+                }
+              />
 
-              {/* EMOJI */}
-              <div>
-                <label
-                  htmlFor="emoji"
-                  className="mb-2 block text-sm font-bold"
-                >
-                  Emoji
-                </label>
-
-                <input
-                  id="emoji"
-                  name="emoji"
-                  type="text"
-                  maxLength={8}
-                  defaultValue={
-                    device?.emoji ?? ""
-                  }
-                  placeholder="📷"
-                  className="w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-5 py-4 text-center text-xl outline-none transition focus:border-orange-400 focus:bg-white"
-                />
-              </div>
+              <input
+                type="hidden"
+                name="emoji"
+                value={
+                  device?.emoji ??
+                  "📦"
+                }
+              />
             </div>
           </section>
         </div>
 
-        {/* RIGHT */}
+        {/* ACTION PANEL */}
         <aside>
-          <div className="sticky top-28 rounded-[30px] border border-yellow-100 bg-white p-6 shadow-lg shadow-yellow-100/40">
-            <h2 className="text-xl font-black">
-              {isEdit
-                ? "Save changes?"
-                : "Ready to list?"}
-            </h2>
-
-            <p className="mt-2 text-sm leading-6 text-zinc-500">
-              {isEdit
-                ? "Review your changes before saving."
-                : "Check your information before submitting."}
-            </p>
-
-            <div className="mt-6 rounded-2xl bg-yellow-50 p-4">
+          <div className="sticky top-6 space-y-4">
+            <section className="rounded-2xl border border-zinc-200 bg-white p-6">
               <div className="flex gap-3">
-                <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-orange-500" />
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-50">
+                  <ShieldCheck className="h-4 w-4 text-amber-600" />
+                </div>
 
                 <div>
-                  <p className="text-sm font-bold">
-                    Admin approval required
-                  </p>
+                  <h2 className="text-sm font-semibold">
+                    Admin review
+                  </h2>
 
                   <p className="mt-1 text-xs leading-5 text-zinc-500">
                     {isEdit
-                      ? "After editing, your listing will return to Pending Approval."
-                      : "Your device will remain hidden from renters until an administrator approves it."}
+                      ? "Saving changes will return this listing to Pending Approval."
+                      : "New listings become public only after administrator approval."}
                   </p>
                 </div>
               </div>
-            </div>
+            </section>
 
-            <button
-              type="submit"
-              className="mt-6 w-full rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 py-4 font-black text-white shadow-lg shadow-orange-100 transition hover:scale-[1.02]"
-            >
-              {isEdit
-                ? "Save Changes"
-                : "Submit Listing"}
-            </button>
+            <section className="rounded-2xl border border-zinc-200 bg-white p-6">
+              <h2 className="text-sm font-semibold">
+                {isEdit
+                  ? "Save listing"
+                  : "Submit listing"}
+              </h2>
 
-            <Link
-              href={
-                isEdit && device
-                  ? `/owner/devices/${device.id}`
-                  : "/owner/devices"
-              }
-              className="mt-3 block w-full rounded-2xl border border-zinc-200 py-4 text-center font-bold text-zinc-600 transition hover:bg-zinc-50"
-            >
-              Cancel
-            </Link>
+              <p className="mt-1 text-xs leading-5 text-zinc-500">
+                Review the details and photos before continuing.
+              </p>
+
+              <button
+                type="submit"
+                className="mt-5 w-full rounded-lg bg-zinc-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800"
+              >
+                {isEdit
+                  ? "Save changes"
+                  : "Submit for review"}
+              </button>
+
+              <Link
+                href={
+                  cancelHref
+                }
+                className="mt-2 block rounded-lg border border-zinc-200 px-4 py-3 text-center text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
+              >
+                Cancel
+              </Link>
+            </section>
           </div>
         </aside>
       </form>

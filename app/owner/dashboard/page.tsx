@@ -95,6 +95,21 @@ async function DashboardContent() {
 
       include: {
         category: true,
+
+        images: {
+          orderBy: [
+            {
+              isPrimary:
+                "desc",
+            },
+            {
+              createdAt:
+                "asc",
+            },
+          ],
+
+          take: 1,
+        },
       },
 
       orderBy: {
@@ -329,9 +344,18 @@ async function DashboardContent() {
                       href={`/owner/devices/${device.id}`}
                       className="flex items-center gap-4 px-6 py-4 transition hover:bg-zinc-50"
                     >
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 text-lg">
-                        {device.emoji ??
-                          "📦"}
+                      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
+                        {device.images[0] ? (
+                          <img
+                            src={device.images[0].url}
+                            alt={device.name}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-lg">
+                            {device.emoji ?? "📦"}
+                          </div>
+                        )}
                       </div>
 
                       <div className="min-w-0 flex-1">

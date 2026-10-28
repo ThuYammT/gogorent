@@ -15,7 +15,8 @@ type EditDevicePageProps = {
 async function EditDeviceContent({
   params,
 }: EditDevicePageProps) {
-  const { id } = await params;
+  const { id } =
+    await params;
 
   const owner =
     await requireOwner();
@@ -24,9 +25,23 @@ async function EditDeviceContent({
     await prisma.device.findFirst({
       where: {
         id,
-
         ownerId:
           owner.id,
+      },
+
+      include: {
+        images: {
+          orderBy: [
+            {
+              isPrimary:
+                "desc",
+            },
+            {
+              createdAt:
+                "asc",
+            },
+          ],
+        },
       },
     });
 
@@ -49,7 +64,8 @@ async function EditDeviceContent({
     });
 
   if (
-    categories.length === 0
+    categories.length ===
+    0
   ) {
     return (
       <div className="rounded-2xl border border-zinc-200 bg-white p-10">
@@ -58,8 +74,7 @@ async function EditDeviceContent({
         </h1>
 
         <p className="mt-2 text-sm text-zinc-500">
-          At least one category is required
-          before editing this listing.
+          At least one category is required before editing this listing.
         </p>
       </div>
     );
@@ -69,8 +84,11 @@ async function EditDeviceContent({
     <DeviceListingForm
       mode="edit"
       categories={categories.map(
-        (category) => ({
-          id: category.id,
+        (
+          category,
+        ) => ({
+          id:
+            category.id,
 
           name:
             category.name,
@@ -116,15 +134,31 @@ async function EditDeviceContent({
 
         emoji:
           device.emoji,
+
+        images:
+          device.images.map(
+            (
+              image,
+            ) => ({
+              id:
+                image.id,
+
+              url:
+                image.url,
+
+              isPrimary:
+                image.isPrimary,
+            }),
+          ),
       }}
     />
   );
 }
 
-function EditDeviceLoading() {
+function Loading() {
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-      <div className="h-[700px] animate-pulse rounded-2xl bg-white" />
+    <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
+      <div className="h-[800px] animate-pulse rounded-2xl bg-white" />
 
       <div className="h-[350px] animate-pulse rounded-2xl bg-white" />
     </div>
@@ -139,11 +173,13 @@ export default function EditDevicePage({
       <div className="mx-auto max-w-[1400px]">
         <Suspense
           fallback={
-            <EditDeviceLoading />
+            <Loading />
           }
         >
           <EditDeviceContent
-            params={params}
+            params={
+              params
+            }
           />
         </Suspense>
       </div>

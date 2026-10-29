@@ -1,7 +1,6 @@
-"use client";
 import Link from "next/link";
+
 import {
-  Heart,
   MapPin,
   Star,
 } from "lucide-react";
@@ -14,6 +13,7 @@ type DeviceCardProps = {
   location: string;
   rating: number;
   emoji: string;
+  imageUrl?: string | null;
 };
 
 export default function DeviceCard({
@@ -24,66 +24,66 @@ export default function DeviceCard({
   location,
   rating,
   emoji,
+  imageUrl,
 }: DeviceCardProps) {
   return (
     <Link
       href={`/devices/${id}`}
-      className="group overflow-hidden rounded-[28px] border border-yellow-100 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl"
+      className="group overflow-hidden rounded-[28px] border border-yellow-100 bg-white transition hover:-translate-y-1 hover:border-orange-200 hover:shadow-xl hover:shadow-orange-100/50"
     >
-      <div className="relative flex h-52 items-center justify-center overflow-hidden bg-gradient-to-br from-yellow-100 via-amber-50 to-orange-100">
-        <span className="text-8xl transition duration-300 group-hover:scale-110">
-          {emoji}
+      {/* IMAGE */}
+      <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-yellow-50 to-orange-100">
+        {imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={name}
+            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center">
+            <span className="text-[90px]">
+              {emoji}
+            </span>
+          </div>
+        )}
+
+        <span className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold text-zinc-700 shadow-sm backdrop-blur">
+          {category}
         </span>
-
-        <button
-          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-sm"
-          onClick={(event) => event.preventDefault()}
-        >
-          <Heart className="h-5 w-5" />
-        </button>
-
-        <div className="absolute bottom-4 left-4 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-green-600 shadow-sm">
-          ● Available
-        </div>
       </div>
 
+      {/* CONTENT */}
       <div className="p-5">
-        <div className="mb-2 flex items-start justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-orange-500">
-              {category}
-            </p>
+        <h3 className="truncate text-lg font-black text-zinc-900">
+          {name}
+        </h3>
 
-            <h3 className="mt-1 text-lg font-black text-zinc-900">
-              {name}
-            </h3>
-          </div>
-
-          <div className="flex items-center gap-1 text-sm font-bold">
-            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-            {rating}
-          </div>
-        </div>
-
-        <div className="mb-4 flex items-center gap-1 text-sm text-zinc-400">
+        <div className="mt-2 flex items-center gap-1.5 text-sm text-zinc-400">
           <MapPin className="h-4 w-4" />
-          {location}
+
+          <span className="truncate">
+            {location}
+          </span>
         </div>
 
-        <div className="flex items-end justify-between">
+        <div className="mt-5 flex items-end justify-between">
           <div>
             <span className="text-xl font-black text-zinc-900">
-              ฿{price}
+              ฿{price.toLocaleString()}
             </span>
-            <span className="text-sm text-zinc-400">
-              {" "}
+
+            <span className="ml-1 text-sm text-zinc-400">
               / day
             </span>
           </div>
 
-          <span className="rounded-full bg-yellow-100 px-4 py-2 text-xs font-bold text-yellow-800">
-            View item →
-          </span>
+          <div className="flex items-center gap-1 text-sm">
+            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+
+            <span className="font-bold text-zinc-700">
+              {rating.toFixed(1)}
+            </span>
+          </div>
         </div>
       </div>
     </Link>

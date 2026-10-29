@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+
 import {
   Search,
   SlidersHorizontal,
@@ -6,6 +7,8 @@ import {
 
 import DeviceCard from "@/components/devices/DeviceCard";
 import Navbar from "@/components/layout/Navbar";
+import NavbarFallback from "@/components/layout/NavbarFallback";
+
 import { prisma } from "@/lib/prisma";
 
 async function DeviceResults() {
@@ -13,9 +16,24 @@ async function DeviceResults() {
     where: {
       status: "AVAILABLE",
     },
+
     include: {
       category: true,
+
+      images: {
+        orderBy: [
+          {
+            isPrimary: "desc",
+          },
+          {
+            createdAt: "asc",
+          },
+        ],
+
+        take: 1,
+      },
     },
+
     orderBy: {
       createdAt: "desc",
     },
@@ -24,7 +42,9 @@ async function DeviceResults() {
   if (devices.length === 0) {
     return (
       <div className="mt-10 rounded-[30px] border border-dashed border-yellow-200 bg-white p-12 text-center">
-        <div className="text-5xl">📦</div>
+        <div className="text-5xl">
+          📦
+        </div>
 
         <h2 className="mt-5 text-2xl font-black text-zinc-900">
           No devices available yet
@@ -42,9 +62,11 @@ async function DeviceResults() {
       <div className="mt-12 flex items-center justify-between">
         <p className="font-bold text-zinc-500">
           Showing{" "}
+
           <span className="text-zinc-900">
             {devices.length}
           </span>{" "}
+
           devices
         </p>
       </div>
@@ -60,6 +82,7 @@ async function DeviceResults() {
             location={device.location ?? "Unknown location"}
             rating={device.avgRating}
             emoji={device.emoji ?? "📦"}
+            imageUrl={device.images[0]?.url ?? null}
           />
         ))}
       </div>
@@ -89,7 +112,9 @@ function DeviceResultsLoading() {
 export default function DevicesPage() {
   return (
     <main className="min-h-screen bg-[#fffdf7]">
-      <Navbar />
+      <Suspense fallback={<NavbarFallback />}>
+        <Navbar />
+      </Suspense>
 
       <section className="mx-auto max-w-7xl px-6 py-12">
         <div>
@@ -99,6 +124,7 @@ export default function DevicesPage() {
 
           <h1 className="mt-5 text-4xl font-black text-zinc-900 md:text-5xl">
             Find your next
+
             <span className="text-orange-500">
               {" "}rental.
             </span>
@@ -125,6 +151,7 @@ export default function DevicesPage() {
             className="flex items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-5 py-4 font-bold text-zinc-700 transition hover:bg-yellow-50"
           >
             <SlidersHorizontal className="h-5 w-5" />
+
             Filters
           </button>
 

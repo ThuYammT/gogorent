@@ -1,9 +1,11 @@
 import { Suspense } from "react";
+
 import {
   CalendarDays,
   Check,
   Clock3,
-  Inbox,
+  MapPin,
+  MessageSquareText,
   UserRound,
   X,
 } from "lucide-react";
@@ -17,178 +19,343 @@ import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/session";
 
 async function RequestsContent() {
-  const owner = await requireOwner();
+  const owner =
+    await requireOwner();
 
-  const requests = await prisma.rental.findMany({
-    where: {
-      ownerId: owner.id,
-      status: "REQUESTED",
-    },
+  const requests =
+    await prisma.rental.findMany({
+      where: {
+        ownerId:
+          owner.id,
 
-    include: {
-      device: true,
-      renter: true,
-    },
+        status:
+          "REQUESTED",
+      },
 
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
+      include: {
+        renter:
+          true,
+
+        device: {
+          include: {
+            images: {
+              orderBy: [
+                {
+                  isPrimary:
+                    "desc",
+                },
+                {
+                  createdAt:
+                    "asc",
+                },
+              ],
+
+              take: 1,
+            },
+          },
+        },
+      },
+
+      orderBy: {
+        createdAt:
+          "desc",
+      },
+    });
 
   return (
     <>
+      {/* HEADER */}
       <header className="border-b border-zinc-200 bg-white px-6 py-8 md:px-10 xl:px-12">
         <div className="mx-auto max-w-[1400px]">
           <p className="text-sm font-medium text-zinc-500">
             Rental management
           </p>
 
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">
-            Rental requests
-          </h1>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-semibold tracking-tight text-zinc-950">
+              Rental Requests
+            </h1>
+
+            {requests.length >
+              0 && (
+              <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700">
+                {
+                  requests.length
+                }{" "}
+                pending
+              </span>
+            )}
+          </div>
 
           <p className="mt-2 text-sm text-zinc-500">
-            Review incoming requests for your devices.
+            Review requests from renters who want to borrow your devices.
           </p>
         </div>
       </header>
 
       <div className="mx-auto max-w-[1400px] px-6 py-8 md:px-10 xl:px-12">
-        {requests.length === 0 ? (
-          <div className="rounded-2xl border border-zinc-200 bg-white px-6 py-16 text-center">
-            <Inbox className="mx-auto h-9 w-9 text-zinc-300" />
+        {requests.length ===
+        0 ? (
+          <section className="rounded-2xl border border-zinc-200 bg-white px-6 py-20 text-center">
+            <Clock3 className="mx-auto h-9 w-9 text-zinc-300" />
 
-            <h2 className="mt-4 font-semibold text-zinc-800">
+            <h2 className="mt-4 font-semibold text-zinc-900">
               No pending requests
             </h2>
 
-            <p className="mt-1 text-sm text-zinc-500">
-              New rental requests will appear here.
+            <p className="mt-2 text-sm text-zinc-500">
+              New rental requests will appear here when renters request your devices.
             </p>
-          </div>
+          </section>
         ) : (
-          <div className="space-y-4">
-            {requests.map((rental) => {
-              const approveAction =
-                approveRentalRequest.bind(
-                  null,
-                  rental.id,
-                );
+          <div className="space-y-5">
+            {requests.map(
+              (rental) => {
+                const approveAction =
+                  approveRentalRequest.bind(
+                    null,
+                    rental.id,
+                  );
 
-              const rejectAction =
-                rejectRentalRequest.bind(
-                  null,
-                  rental.id,
-                );
+                const rejectAction =
+                  rejectRentalRequest.bind(
+                    null,
+                    rental.id,
+                  );
 
-              return (
-                <article
-                  key={rental.id}
-                  className="rounded-2xl border border-zinc-200 bg-white"
-                >
-                  <div className="flex flex-col gap-5 p-6 lg:flex-row lg:items-center">
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-2xl">
-                      {rental.device.emoji ?? "📦"}
-                    </div>
+                const image =
+                  rental.device
+                    .images[0];
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h2 className="font-semibold text-zinc-950">
-                          {rental.device.name}
-                        </h2>
-
-                        <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
-                          Pending
-                        </span>
+                return (
+                  <section
+                    key={
+                      rental.id
+                    }
+                    className="overflow-hidden rounded-2xl border border-zinc-200 bg-white"
+                  >
+                    <div className="grid gap-0 lg:grid-cols-[230px_1fr_300px]">
+                      {/* DEVICE IMAGE */}
+                      <div className="min-h-[220px] bg-zinc-100">
+                        {image ? (
+                          <img
+                            src={
+                              image.url
+                            }
+                            alt={
+                              rental
+                                .device
+                                .name
+                            }
+                            className="h-full min-h-[220px] w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full min-h-[220px] items-center justify-center text-6xl">
+                            {rental
+                              .device
+                              .emoji ??
+                              "📦"}
+                          </div>
+                        )}
                       </div>
 
-                      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2 text-sm text-zinc-500">
-                        <span className="flex items-center gap-2">
-                          <UserRound className="h-4 w-4" />
-                          {rental.renter.name}
-                        </span>
+                      {/* DETAILS */}
+                      <div className="p-6">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                              Rental request
+                            </p>
 
-                        <span className="flex items-center gap-2">
-                          <CalendarDays className="h-4 w-4" />
-                          {rental.startDate.toLocaleDateString()}
-                          {" – "}
-                          {rental.endDate.toLocaleDateString()}
-                        </span>
+                            <h2 className="mt-1 text-xl font-semibold text-zinc-950">
+                              {
+                                rental
+                                  .device
+                                  .name
+                              }
+                            </h2>
+                          </div>
 
-                        <span className="flex items-center gap-2">
-                          <Clock3 className="h-4 w-4" />
-                          {rental.totalDays} days
-                        </span>
-                      </div>
-
-                      {rental.renterNote && (
-                        <div className="mt-4 rounded-lg bg-zinc-50 px-4 py-3">
-                          <p className="text-xs font-medium text-zinc-500">
-                            Renter note
-                          </p>
-
-                          <p className="mt-1 text-sm text-zinc-700">
-                            {rental.renterNote}
-                          </p>
+                          <span className="rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                            Pending review
+                          </span>
                         </div>
-                      )}
+
+                        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                          <div className="flex gap-3">
+                            <UserRound className="mt-0.5 h-4 w-4 text-zinc-400" />
+
+                            <div>
+                              <p className="text-xs text-zinc-500">
+                                Renter
+                              </p>
+
+                              <p className="mt-1 text-sm font-semibold text-zinc-900">
+                                {
+                                  rental
+                                    .renter
+                                    .name
+                                }
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3">
+                            <CalendarDays className="mt-0.5 h-4 w-4 text-zinc-400" />
+
+                            <div>
+                              <p className="text-xs text-zinc-500">
+                                Rental dates
+                              </p>
+
+                              <p className="mt-1 text-sm font-semibold text-zinc-900">
+                                {rental.startDate.toLocaleDateString()}
+                                {" "}–{" "}
+                                {rental.endDate.toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3">
+                            <Clock3 className="mt-0.5 h-4 w-4 text-zinc-400" />
+
+                            <div>
+                              <p className="text-xs text-zinc-500">
+                                Duration
+                              </p>
+
+                              <p className="mt-1 text-sm font-semibold text-zinc-900">
+                                {
+                                  rental.totalDays
+                                }{" "}
+                                day
+                                {rental.totalDays ===
+                                1
+                                  ? ""
+                                  : "s"}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-3">
+                            <MapPin className="mt-0.5 h-4 w-4 text-zinc-400" />
+
+                            <div>
+                              <p className="text-xs text-zinc-500">
+                                Device location
+                              </p>
+
+                              <p className="mt-1 text-sm font-semibold text-zinc-900">
+                                {rental
+                                  .device
+                                  .location ??
+                                  "Not specified"}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {rental.renterNote && (
+                          <div className="mt-6 flex gap-3 rounded-xl bg-zinc-50 p-4">
+                            <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
+
+                            <div>
+                              <p className="text-xs font-medium text-zinc-500">
+                                Renter note
+                              </p>
+
+                              <p className="mt-1 text-sm leading-6 text-zinc-700">
+                                {
+                                  rental.renterNote
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* MONEY + ACTIONS */}
+                      <div className="border-t border-zinc-100 bg-zinc-50/60 p-6 lg:border-l lg:border-t-0">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                          Request total
+                        </p>
+
+                        <p className="mt-2 text-3xl font-semibold text-zinc-950">
+                          ฿
+                          {Number(
+                            rental.rentalAmount,
+                          ).toLocaleString()}
+                        </p>
+
+                        <div className="mt-4 space-y-3 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-zinc-500">
+                              Rental
+                            </span>
+
+                            <span className="font-medium">
+                              ฿
+                              {Number(
+                                rental.rentalAmount,
+                              ).toLocaleString()}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between">
+                            <span className="text-zinc-500">
+                              Deposit
+                            </span>
+
+                            <span className="font-medium">
+                              ฿
+                              {Number(
+                                rental.depositAmount,
+                              ).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="mt-6 space-y-3">
+                          <form
+                            action={
+                              approveAction
+                            }
+                          >
+                            <button
+                              type="submit"
+                              className="flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800"
+                            >
+                              <Check className="h-4 w-4" />
+                              Approve request
+                            </button>
+                          </form>
+
+                          <form
+                            action={
+                              rejectAction
+                            }
+                          >
+                            <input
+                              name="reason"
+                              placeholder="Optional rejection reason"
+                              className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2.5 text-sm outline-none placeholder:text-zinc-400 focus:border-zinc-400"
+                            />
+
+                            <button
+                              type="submit"
+                              className="mt-2 flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-50"
+                            >
+                              <X className="h-4 w-4" />
+                              Reject request
+                            </button>
+                          </form>
+                        </div>
+                      </div>
                     </div>
-
-                    <div className="min-w-[190px]">
-                      <p className="text-xs text-zinc-500">
-                        Rental amount
-                      </p>
-
-                      <p className="mt-1 text-xl font-semibold">
-                        ฿
-                        {Number(
-                          rental.rentalAmount,
-                        ).toLocaleString()}
-                      </p>
-
-                      <p className="mt-1 text-xs text-zinc-400">
-                        + ฿
-                        {Number(
-                          rental.depositAmount,
-                        ).toLocaleString()}{" "}
-                        deposit
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-col gap-3 border-t border-zinc-100 bg-zinc-50/60 px-6 py-4 md:flex-row md:items-center md:justify-end">
-                    <form
-                      action={rejectAction}
-                      className="flex flex-1 gap-2 md:max-w-md"
-                    >
-                      <input
-                        name="reason"
-                        placeholder="Optional rejection reason"
-                        className="min-w-0 flex-1 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-400"
-                      />
-
-                      <button
-                        type="submit"
-                        className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-50"
-                      >
-                        <X className="h-4 w-4" />
-                        Reject
-                      </button>
-                    </form>
-
-                    <form action={approveAction}>
-                      <button
-                        type="submit"
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-zinc-950 px-5 py-2 text-sm font-semibold text-white hover:bg-zinc-800"
-                      >
-                        <Check className="h-4 w-4" />
-                        Approve request
-                      </button>
-                    </form>
-                  </div>
-                </article>
-              );
-            })}
+                  </section>
+                );
+              },
+            )}
           </div>
         )}
       </div>
@@ -196,17 +363,30 @@ async function RequestsContent() {
   );
 }
 
-function Loading() {
+function RequestsLoading() {
   return (
-    <div className="p-10">
-      <div className="h-40 animate-pulse rounded-2xl bg-white" />
+    <div className="p-8 md:p-10">
+      <div className="space-y-5">
+        {[1, 2, 3].map(
+          (item) => (
+            <div
+              key={item}
+              className="h-64 animate-pulse rounded-2xl bg-white"
+            />
+          ),
+        )}
+      </div>
     </div>
   );
 }
 
 export default function OwnerRequestsPage() {
   return (
-    <Suspense fallback={<Loading />}>
+    <Suspense
+      fallback={
+        <RequestsLoading />
+      }
+    >
       <RequestsContent />
     </Suspense>
   );

@@ -1,47 +1,129 @@
-import { Suspense } from "react";
+import {
+  Suspense,
+  type ReactNode,
+} from "react";
 
 import OwnerSidebar from "@/components/owner/OwnerSidebar";
+
+import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/session";
 
-type OwnerLayoutProps = {
-  children: React.ReactNode;
-};
+/* ======================================================
+   DYNAMIC OWNER SHELL
+====================================================== */
 
 async function OwnerShell({
   children,
-}: OwnerLayoutProps) {
-  const owner = await requireOwner();
+}: {
+  children: ReactNode;
+}) {
+  /*
+   * requireOwner() reads cookies
+   * and verifies the user in the DB.
+   *
+   * This component is rendered
+   * inside Suspense below.
+   */
+  const owner =
+    await requireOwner();
+
+  const unreadNotifications =
+    await prisma.notification.count({
+      where: {
+        userId:
+          owner.id,
+
+        isRead:
+          false,
+      },
+    });
 
   return (
-    <div className="min-h-screen bg-[#f6f7f9] lg:flex">
-      <div className="hidden lg:block">
-        <OwnerSidebar
-          name={owner.name}
-          email={owner.email}
-        />
-      </div>
+    <div className="min-h-screen bg-[#f6f7f9]">
+      <OwnerSidebar
+        owner={{
+          name:
+            owner.name ??
+            "Owner",
 
-      <main className="min-w-0 flex-1">
+          email:
+            owner.email ??
+            "",
+        }}
+        unreadNotifications={
+          unreadNotifications
+        }
+      />
+
+      <main className="min-h-screen lg:pl-64">
         {children}
       </main>
     </div>
   );
 }
 
-function OwnerShellLoading() {
+/* ======================================================
+   FALLBACK
+====================================================== */
+
+function OwnerLayoutLoading({
+  children,
+}: {
+  children: ReactNode;
+}) {
   return (
     <div className="min-h-screen bg-[#f6f7f9]">
-      <div className="h-screen animate-pulse bg-zinc-100" />
+      {/* DESKTOP SIDEBAR PLACEHOLDER */}
+      <aside className="fixed inset-y-0 left-0 hidden w-64 bg-[#111214] lg:block">
+        <div className="h-20 border-b border-white/10 px-6 py-6">
+          <div className="h-6 w-28 animate-pulse rounded bg-white/10" />
+        </div>
+
+        <div className="space-y-3 p-5">
+          <div className="h-4 w-24 animate-pulse rounded bg-white/10" />
+
+          {[1, 2, 3, 4, 5, 6, 7].map(
+            (item) => (
+              <div
+                key={item}
+                className="h-10 animate-pulse rounded-lg bg-white/5"
+              />
+            ),
+          )}
+        </div>
+      </aside>
+
+      {/* MOBILE HEADER PLACEHOLDER */}
+      <div className="flex h-16 items-center justify-between border-b border-zinc-200 bg-white px-5 lg:hidden">
+        <div className="h-6 w-28 animate-pulse rounded bg-zinc-100" />
+
+        <div className="h-10 w-10 animate-pulse rounded-lg bg-zinc-100" />
+      </div>
+
+      {/* PAGE */}
+      <main className="min-h-screen lg:pl-64">
+        {children}
+      </main>
     </div>
   );
 }
 
+/* ======================================================
+   OWNER LAYOUT
+====================================================== */
+
 export default function OwnerLayout({
   children,
-}: OwnerLayoutProps) {
+}: {
+  children: ReactNode;
+}) {
   return (
     <Suspense
-      fallback={<OwnerShellLoading />}
+      fallback={
+        <OwnerLayoutLoading>
+          {children}
+        </OwnerLayoutLoading>
+      }
     >
       <OwnerShell>
         {children}

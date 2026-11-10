@@ -1,198 +1,232 @@
 import { Suspense } from "react";
+
 import {
   BadgeCheck,
+  CalendarDays,
   Mail,
-  MapPin,
-  Phone,
+  ShieldCheck,
   UserRound,
 } from "lucide-react";
 
-import { updateOwnerProfile } from "./actions";
+import OwnerProfileForm from "@/components/owner/OwnerProfileForm";
 
 import { requireOwner } from "@/lib/session";
 
+/* ======================================================
+   INITIALS
+====================================================== */
+
+function getInitials(
+  name: string,
+) {
+  const parts =
+    name
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean);
+
+  if (
+    parts.length === 0
+  ) {
+    return "O";
+  }
+
+  if (
+    parts.length === 1
+  ) {
+    return parts[0]
+      .slice(0, 2)
+      .toUpperCase();
+  }
+
+  return (
+    parts[0][0] +
+    parts[
+      parts.length - 1
+    ][0]
+  ).toUpperCase();
+}
+
+/* ======================================================
+   CONTENT
+====================================================== */
+
 async function ProfileContent() {
-  const owner = await requireOwner();
+  const owner =
+    await requireOwner();
 
   return (
     <>
+      {/* HEADER */}
       <header className="border-b border-zinc-200 bg-white px-6 py-8 md:px-10 xl:px-12">
-        <div className="mx-auto max-w-[1100px]">
+        <div className="mx-auto max-w-[1400px]">
           <p className="text-sm font-medium text-zinc-500">
-            Account settings
+            Account management
           </p>
 
-          <h1 className="mt-1 text-3xl font-semibold">
-            Profile
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">
+            Owner Profile
           </h1>
 
           <p className="mt-2 text-sm text-zinc-500">
-            Manage your public owner information.
+            Manage your public owner information and account details.
           </p>
         </div>
       </header>
 
-      <div className="mx-auto max-w-[1100px] px-6 py-8 md:px-10 xl:px-12">
-        <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-          <aside className="rounded-2xl border border-zinc-200 bg-white p-6">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-zinc-950 text-xl font-semibold text-white">
-              {owner.name
-                .charAt(0)
-                .toUpperCase()}
-            </div>
+      <div className="mx-auto max-w-[1400px] px-6 py-8 md:px-10 xl:px-12">
+        <div className="grid gap-6 xl:grid-cols-[340px_1fr]">
+          {/* ACCOUNT CARD */}
+          <aside className="space-y-5">
+            <section className="rounded-2xl border border-zinc-200 bg-white p-6">
+              <div className="flex flex-col items-center text-center">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-zinc-950 text-xl font-bold text-white">
+                  {getInitials(
+                    owner.name,
+                  )}
+                </div>
 
-            <h2 className="mt-5 font-semibold">
-              {owner.name}
-            </h2>
+                <h2 className="mt-4 text-lg font-semibold text-zinc-950">
+                  {
+                    owner.name
+                  }
+                </h2>
 
-            <p className="mt-1 text-sm text-zinc-500">
-              {owner.email}
-            </p>
+                <p className="mt-1 text-sm text-zinc-500">
+                  Device Owner
+                </p>
 
-            <div className="mt-5 border-t border-zinc-100 pt-5">
-              <div className="flex items-center gap-2 text-sm">
-                <BadgeCheck
-                  className={`h-4 w-4 ${
-                    owner.isVerified
-                      ? "text-emerald-600"
-                      : "text-zinc-400"
-                  }`}
-                />
-
-                {owner.isVerified
-                  ? "Verified owner"
-                  : "Not verified"}
+                {owner.isVerified ? (
+                  <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                    <BadgeCheck className="h-4 w-4" />
+                    Verified owner
+                  </span>
+                ) : (
+                  <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-semibold text-zinc-600">
+                    <ShieldCheck className="h-4 w-4" />
+                    Standard owner
+                  </span>
+                )}
               </div>
-            </div>
-          </aside>
+            </section>
 
-          <form
-            action={updateOwnerProfile}
-            className="rounded-2xl border border-zinc-200 bg-white p-6"
-          >
-            <h2 className="text-base font-semibold">
-              Personal information
-            </h2>
+            {/* ACCOUNT INFO */}
+            <section className="rounded-2xl border border-zinc-200 bg-white p-6">
+              <h2 className="text-sm font-semibold text-zinc-950">
+                Account information
+              </h2>
 
-            <div className="mt-6 space-y-5">
-              <div>
-                <label className="text-sm font-medium">
-                  Name
-                </label>
+              <div className="mt-5 space-y-5">
+                <div className="flex gap-3">
+                  <Mail className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
 
-                <div className="mt-2 flex items-center gap-3 rounded-lg border border-zinc-200 px-3">
-                  <UserRound className="h-4 w-4 text-zinc-400" />
+                  <div className="min-w-0">
+                    <p className="text-xs text-zinc-500">
+                      Email
+                    </p>
 
-                  <input
-                    name="name"
-                    required
-                    defaultValue={
-                      owner.name
-                    }
-                    className="w-full py-3 text-sm outline-none"
-                  />
+                    <p className="mt-1 truncate text-sm font-medium text-zinc-900">
+                      {
+                        owner.email
+                      }
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <UserRound className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
+
+                  <div>
+                    <p className="text-xs text-zinc-500">
+                      Role
+                    </p>
+
+                    <p className="mt-1 text-sm font-medium text-zinc-900">
+                      Owner
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
+
+                  <div>
+                    <p className="text-xs text-zinc-500">
+                      Member since
+                    </p>
+
+                    <p className="mt-1 text-sm font-medium text-zinc-900">
+                      {owner.createdAt.toLocaleDateString(
+                        undefined,
+                        {
+                          month:
+                            "long",
+
+                          year:
+                            "numeric",
+                        },
+                      )}
+                    </p>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium">
-                  Email
-                </label>
-
-                <div className="mt-2 flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3">
-                  <Mail className="h-4 w-4 text-zinc-400" />
-
-                  <input
-                    value={
-                      owner.email
-                    }
-                    disabled
-                    className="w-full bg-transparent py-3 text-sm text-zinc-500 outline-none"
-                  />
-                </div>
-
-                <p className="mt-1 text-xs text-zinc-400">
-                  Email changes are not available here.
+              <div className="mt-5 rounded-lg bg-zinc-50 p-4">
+                <p className="text-xs leading-5 text-zinc-500">
+                  Your email and account role are managed by GoGoRent and
+                  cannot be changed from this page.
                 </p>
               </div>
+            </section>
+          </aside>
 
-              <div className="grid gap-5 md:grid-cols-2">
-                <div>
-                  <label className="text-sm font-medium">
-                    Phone
-                  </label>
+          {/* EDIT FORM */}
+          <main>
+            <OwnerProfileForm
+              owner={{
+                name:
+                  owner.name,
 
-                  <div className="mt-2 flex items-center gap-3 rounded-lg border border-zinc-200 px-3">
-                    <Phone className="h-4 w-4 text-zinc-400" />
+                phone:
+                  owner.phone,
 
-                    <input
-                      name="phone"
-                      defaultValue={
-                        owner.phone ??
-                        ""
-                      }
-                      placeholder="+66..."
-                      className="w-full py-3 text-sm outline-none"
-                    />
-                  </div>
-                </div>
+                location:
+                  owner.location,
 
-                <div>
-                  <label className="text-sm font-medium">
-                    Location
-                  </label>
-
-                  <div className="mt-2 flex items-center gap-3 rounded-lg border border-zinc-200 px-3">
-                    <MapPin className="h-4 w-4 text-zinc-400" />
-
-                    <input
-                      name="location"
-                      defaultValue={
-                        owner.location ??
-                        ""
-                      }
-                      placeholder="Bangkok"
-                      className="w-full py-3 text-sm outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium">
-                  Bio
-                </label>
-
-                <textarea
-                  name="bio"
-                  rows={5}
-                  defaultValue={
-                    owner.bio ?? ""
-                  }
-                  placeholder="Tell renters a little about yourself..."
-                  className="mt-2 w-full resize-none rounded-lg border border-zinc-200 px-4 py-3 text-sm outline-none focus:border-zinc-400"
-                />
-              </div>
-            </div>
-
-            <div className="mt-6 flex justify-end border-t border-zinc-100 pt-6">
-              <button
-                type="submit"
-                className="rounded-lg bg-zinc-950 px-5 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
-              >
-                Save changes
-              </button>
-            </div>
-          </form>
+                bio:
+                  owner.bio,
+              }}
+            />
+          </main>
         </div>
       </div>
     </>
   );
 }
 
+/* ======================================================
+   LOADING
+====================================================== */
+
+function ProfileLoading() {
+  return (
+    <div className="p-8 md:p-10">
+      <div className="grid gap-6 xl:grid-cols-[340px_1fr]">
+        <div className="h-[450px] animate-pulse rounded-2xl bg-white" />
+
+        <div className="h-[620px] animate-pulse rounded-2xl bg-white" />
+      </div>
+    </div>
+  );
+}
+
 export default function OwnerProfilePage() {
   return (
-    <Suspense fallback={<div className="p-10">Loading...</div>}>
+    <Suspense
+      fallback={
+        <ProfileLoading />
+      }
+    >
       <ProfileContent />
     </Suspense>
   );

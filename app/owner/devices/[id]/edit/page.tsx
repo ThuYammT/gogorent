@@ -63,30 +63,11 @@ async function EditDeviceContent({
       },
     });
 
-  if (
-    categories.length ===
-    0
-  ) {
-    return (
-      <div className="rounded-2xl border border-zinc-200 bg-white p-10">
-        <h1 className="text-xl font-semibold">
-          No categories available
-        </h1>
-
-        <p className="mt-2 text-sm text-zinc-500">
-          At least one category is required before editing this listing.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <DeviceListingForm
       mode="edit"
       categories={categories.map(
-        (
-          category,
-        ) => ({
+        (category) => ({
           id:
             category.id,
 
@@ -135,11 +116,12 @@ async function EditDeviceContent({
         emoji:
           device.emoji,
 
+        status:
+          device.status,
+
         images:
           device.images.map(
-            (
-              image,
-            ) => ({
+            (image) => ({
               id:
                 image.id,
 

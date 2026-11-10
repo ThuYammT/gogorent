@@ -12,6 +12,7 @@ export async function requireAdmin() {
   }
 
   let session: unknown;
+
   try {
     session = JSON.parse(sessionCookie.value);
   } catch {
@@ -28,11 +29,26 @@ export async function requireAdmin() {
   }
 
   const user = await prisma.user.findUnique({
-    where: { id: session.userId },
-    select: { role: true, status: true },
+    where: {
+      id: session.userId,
+    },
+
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      status: true,
+    },
   });
 
-  if (!user || user.role !== "ADMIN" || user.status !== "ACTIVE") {
+  if (
+    !user ||
+    user.role !== "ADMIN" ||
+    user.status !== "ACTIVE"
+  ) {
     redirect("/login");
   }
+
+  return user;
 }

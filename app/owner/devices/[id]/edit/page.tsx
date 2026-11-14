@@ -1,5 +1,10 @@
-import { Suspense } from "react";
-import { notFound } from "next/navigation";
+import {
+  Suspense,
+} from "react";
+
+import {
+  notFound,
+} from "next/navigation";
 
 import DeviceListingForm from "@/components/owner/DeviceListingForm";
 
@@ -15,53 +20,63 @@ type EditDevicePageProps = {
 async function EditDeviceContent({
   params,
 }: EditDevicePageProps) {
-  const { id } =
-    await params;
-
   const owner =
     await requireOwner();
 
-  const device =
-    await prisma.device.findFirst({
-      where: {
-        id,
-        ownerId:
-          owner.id,
-      },
+  const {
+    id,
+  } = await params;
 
-      include: {
-        images: {
-          orderBy: [
-            {
-              isPrimary:
-                "desc",
-            },
-            {
-              createdAt:
-                "asc",
-            },
-          ],
+  const [
+    device,
+    categories,
+  ] =
+    await Promise.all([
+      prisma.device.findFirst({
+        where: {
+          id,
+
+          ownerId:
+            owner.id,
         },
-      },
-    });
+
+        include: {
+          images: {
+            orderBy: [
+              {
+                isPrimary:
+                  "desc",
+              },
+              {
+                createdAt:
+                  "asc",
+              },
+            ],
+          },
+        },
+      }),
+
+      prisma.category.findMany({
+        orderBy: {
+          name: "asc",
+        },
+      }),
+    ]);
 
   if (!device) {
     notFound();
   }
 
+  /*
+   * Don't allow a currently rented
+   * item to be edited.
+   */
   if (
     device.status ===
     "RENTED"
   ) {
     notFound();
   }
-
-  const categories =
-    await prisma.category.findMany({
-      orderBy: {
-        name: "asc",
-      },
-    });
 
   return (
     <DeviceListingForm
@@ -113,6 +128,12 @@ async function EditDeviceContent({
         location:
           device.location,
 
+        latitude:
+          device.latitude,
+
+        longitude:
+          device.longitude,
+
         emoji:
           device.emoji,
 
@@ -137,12 +158,20 @@ async function EditDeviceContent({
   );
 }
 
-function Loading() {
+function EditDeviceLoading() {
   return (
-    <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
-      <div className="h-[800px] animate-pulse rounded-2xl bg-white" />
+    <div className="px-6 py-10">
+      <div className="mx-auto max-w-7xl">
+        <div className="h-5 w-32 animate-pulse rounded bg-zinc-200" />
 
-      <div className="h-[350px] animate-pulse rounded-2xl bg-white" />
+        <div className="mt-6 h-10 w-72 animate-pulse rounded bg-zinc-200" />
+
+        <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_360px]">
+          <div className="h-[900px] animate-pulse rounded-2xl bg-white" />
+
+          <div className="h-[400px] animate-pulse rounded-2xl bg-white" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -151,17 +180,15 @@ export default function EditDevicePage({
   params,
 }: EditDevicePageProps) {
   return (
-    <div className="px-6 py-8 md:px-10 xl:px-12">
-      <div className="mx-auto max-w-[1400px]">
+    <div className="px-6 py-10">
+      <div className="mx-auto max-w-7xl">
         <Suspense
           fallback={
-            <Loading />
+            <EditDeviceLoading />
           }
         >
           <EditDeviceContent
-            params={
-              params
-            }
+            params={params}
           />
         </Suspense>
       </div>

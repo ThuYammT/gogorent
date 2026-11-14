@@ -657,8 +657,6 @@ export async function createDevice(
       await notifyAdminsOfNewListing(transaction, device);
     });
   } catch (error) {
-<<<<<<< HEAD
-=======
     // Roll back the listing and any uploaded images if submission fails.
     const images = await prisma.deviceImage.findMany({
       where: { deviceId: device.id },
@@ -671,7 +669,6 @@ export async function createDevice(
 
     await removeStorageFiles(paths);
 
->>>>>>> 6f9af43d2c699b010d7b689ec792edcd430df05a
     await prisma.device.delete({
       where: {
         id:
@@ -687,7 +684,6 @@ export async function createDevice(
   );
 
 <<<<<<< HEAD
-=======
   revalidatePath(
     "/owner/devices",
   );
@@ -696,14 +692,16 @@ export async function createDevice(
     "/devices",
   );
 
+=======
+>>>>>>> origin/simran
   revalidatePath("/admin", "layout");
-  revalidatePath("/admin/listings");
   revalidatePath("/admin/notifications");
-  revalidatePath("/admin/dashboard");
 
+<<<<<<< HEAD
   revalidatePath("/");
 
->>>>>>> 6f9af43d2c699b010d7b689ec792edcd430df05a
+=======
+>>>>>>> origin/simran
   redirect(
     `/owner/devices/${device.id}`,
   );

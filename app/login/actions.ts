@@ -1,11 +1,11 @@
 "use server";
 
 import bcrypt from "bcryptjs";
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { prisma } from "@/lib/prisma";
+import { createSession, deleteSession } from "@/lib/session";
 
 const loginSchema = z.object({
   email: z.email(),
@@ -29,8 +29,7 @@ function dashboardPathForRole(role: "RENTER" | "OWNER" | "ADMIN") {
 }
 
 export async function logoutAction() {
-  const cookieStore = await cookies();
-  cookieStore.delete("gogorent_session");
+  await deleteSession();
   redirect("/login");
 }
 
@@ -72,23 +71,7 @@ export async function loginAction(
     return { error: "Invalid email or password" };
   }
 
-  const cookieStore = await cookies();
-  cookieStore.set(
-    "gogorent_session",
-    JSON.stringify({
-      userId: user.id,
-      role: user.role,
-      name: user.name,
-      email: user.email,
-    }),
-    {
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: 60 * 60 * 24 * 7,
-    },
-  );
+  await createSession(user.id);
 
   redirect(dashboardPathForRole(user.role));
 }

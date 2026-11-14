@@ -87,7 +87,7 @@ export async function initiateHandover(rentalId: string, type: HandoverType) {
         type: `${type}_QR_GENERATED`,
         title: type === "COLLECTION" ? "Collection QR generated" : "Return QR generated",
         message: type === "COLLECTION"
-          ? "The owner has generated a Collection QR code. Please scan it to verify device collection."
+          ? "The owner has generated a Collection QR code. Open your booking to scan it at collection."
           : "The renter has generated a Return QR code. Please scan it to verify the device return.",
       },
     });
@@ -103,7 +103,7 @@ export async function verifyHandover(
   requireHandoverType(type);
   const actor = await getSession();
   if (!actor) {
-    throw new Error("Authentication required.");
+    throw new HandoverError("Authentication required.");
   }
   const rental = await prisma.rental.findUnique({
     where: { id: rentalId },
@@ -112,7 +112,7 @@ export async function verifyHandover(
   const scannerId = type === "COLLECTION" ? rental?.renterId : rental?.ownerId;
   const scannerRole = type === "COLLECTION" ? "RENTER" : "OWNER";
   if (!rental || actor.userId !== scannerId || actor.role !== scannerRole) {
-    throw new Error("You are not authorized to scan this code.");
+    throw new HandoverError("You are not authorized to scan this code.");
   }
 
   const limits = await prisma.$queryRaw<{ attempts: number }[]>`
@@ -128,10 +128,10 @@ export async function verifyHandover(
     RETURNING "attempts"
   `;
   if (limits.length !== 1 || limits[0].attempts > 10) {
-    throw new Error("Too many verification attempts. Please try again later.");
+    throw new HandoverError("Too many verification attempts. Please try again later.");
   }
   if (!isHandoverTokenFormat(token)) {
-    throw new Error("Invalid QR code.");
+    throw new HandoverError("Invalid QR code.");
   }
 
   await prisma.$transaction(async (transaction) => {
@@ -139,7 +139,7 @@ export async function verifyHandover(
     const scannerId = type === "COLLECTION" ? rental.renterId : rental.ownerId;
     const scannerRole = type === "COLLECTION" ? "RENTER" : "OWNER";
     if (actor.userId !== scannerId || actor.role !== scannerRole) {
-      throw new Error("You are not authorized to scan this code.");
+      throw new HandoverError("You are not authorized to scan this code.");
     }
     requireEligible(rental.status, type);
     const now = new Date();
@@ -154,7 +154,7 @@ export async function verifyHandover(
       data: { status: "QR_SCANNED", scannedAt: now },
     });
     if (updated.count !== 1) {
-      throw new Error("QR code is invalid, expired or already used.");
+      throw new HandoverError("QR code is invalid, expired or already used.");
     }
 
     const handover = await transaction.handover.findUniqueOrThrow({
@@ -176,7 +176,7 @@ export async function verifyHandover(
         type: `${type}_QR_SCANNED`,
         title: type === "COLLECTION" ? "Collection QR scanned" : "Return QR scanned",
         message: type === "COLLECTION"
-          ? "The renter has successfully scanned your Collection QR code. Please complete the handover confirmation."
+          ? "The renter has scanned your Collection QR code. Collection confirmation is not yet available."
           : "The owner has successfully scanned your Return QR code. Please complete the return confirmation.",
       },
     });

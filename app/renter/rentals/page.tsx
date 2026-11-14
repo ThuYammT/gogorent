@@ -128,6 +128,12 @@ async function RenterRentalsContent({
                 >
                   {rental.status.replaceAll("_", " ")}
                 </span>
+                <Link
+                  href={`/renter/rentals/${rental.id}`}
+                  className="inline-flex items-center rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                >
+                  {rental.status === "APPROVED" ? "View booking / scan QR" : "View booking"}
+                </Link>
                 {["REQUESTED", "APPROVED"].includes(rental.status) && (
                   <form action={cancelRenterBooking.bind(null, rental.id)}>
                     <button

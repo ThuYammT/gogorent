@@ -6,6 +6,7 @@ import { ArrowLeft, CalendarDays } from "lucide-react";
 
 import { cancelRenterBooking } from "../actions";
 
+import CollectionQrScanner from "@/components/renter/CollectionQrScanner";
 import { prisma } from "@/lib/prisma";
 import { requireRenter } from "@/lib/session";
 
@@ -28,6 +29,10 @@ async function RenterBookingContent({
           emoji: true,
           location: true,
         },
+      },
+      handovers: {
+        where: { type: "COLLECTION" },
+        select: { status: true },
       },
     },
   });
@@ -107,6 +112,18 @@ async function RenterBookingContent({
             <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-600">
               {rental.renterNote}
             </p>
+          </div>
+        )}
+
+        {rental.status === "APPROVED" && (
+          <div className="mt-8 border-t border-zinc-100 pt-6">
+            {rental.handovers.some((handover) => handover.status !== "INITIATED") ? (
+              <p className="text-sm font-semibold text-emerald-700">
+                Collection QR scanned. Collection confirmation is not yet available.
+              </p>
+            ) : (
+              <CollectionQrScanner rentalId={rental.id} />
+            )}
           </div>
         )}
 

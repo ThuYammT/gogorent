@@ -657,8 +657,6 @@ export async function createDevice(
       await notifyAdminsOfNewListing(transaction, device);
     });
   } catch (error) {
-<<<<<<< HEAD
-=======
     // Roll back the listing and any uploaded images if submission fails.
     const images = await prisma.deviceImage.findMany({
       where: { deviceId: device.id },
@@ -671,7 +669,6 @@ export async function createDevice(
 
     await removeStorageFiles(paths);
 
->>>>>>> 6f9af43d2c699b010d7b689ec792edcd430df05a
     await prisma.device.delete({
       where: {
         id:
@@ -686,8 +683,6 @@ export async function createDevice(
     device.id,
   );
 
-<<<<<<< HEAD
-=======
   revalidatePath(
     "/owner/devices",
   );
@@ -703,7 +698,6 @@ export async function createDevice(
 
   revalidatePath("/");
 
->>>>>>> 6f9af43d2c699b010d7b689ec792edcd430df05a
   redirect(
     `/owner/devices/${device.id}`,
   );

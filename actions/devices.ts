@@ -683,6 +683,7 @@ export async function createDevice(
     device.id,
   );
 
+<<<<<<< HEAD
   revalidatePath(
     "/owner/devices",
   );
@@ -691,13 +692,16 @@ export async function createDevice(
     "/devices",
   );
 
+=======
+>>>>>>> origin/simran
   revalidatePath("/admin", "layout");
-  revalidatePath("/admin/listings");
   revalidatePath("/admin/notifications");
-  revalidatePath("/admin/dashboard");
 
+<<<<<<< HEAD
   revalidatePath("/");
 
+=======
+>>>>>>> origin/simran
   redirect(
     `/owner/devices/${device.id}`,
   );

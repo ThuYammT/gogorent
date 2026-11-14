@@ -30,7 +30,7 @@ export default function RegisterPage() {
           </p>
 
           <div className="mt-10 grid gap-5 md:grid-cols-2">
-            <button className="group rounded-[30px] border-2 border-zinc-100 bg-white p-8 text-left transition hover:border-orange-400 hover:shadow-xl">
+            <Link href="/register/renter" className="group rounded-[30px] border-2 border-zinc-100 bg-white p-8 text-left transition hover:border-orange-400 hover:shadow-xl">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-yellow-100 transition group-hover:bg-orange-500 group-hover:text-white">
                 <ShoppingBag />
               </div>
@@ -48,9 +48,9 @@ export default function RegisterPage() {
                 Continue as Renter
                 <ArrowRight className="h-4 w-4" />
               </p>
-            </button>
+            </Link>
 
-            <button className="group rounded-[30px] border-2 border-zinc-100 bg-white p-8 text-left transition hover:border-orange-400 hover:shadow-xl">
+            <Link href="/register/owner" className="group rounded-[30px] border-2 border-zinc-100 bg-white p-8 text-left transition hover:border-orange-400 hover:shadow-xl">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-orange-100 transition group-hover:bg-orange-500 group-hover:text-white">
                 <Package />
               </div>
@@ -68,7 +68,7 @@ export default function RegisterPage() {
                 Continue as Owner
                 <ArrowRight className="h-4 w-4" />
               </p>
-            </button>
+            </Link>
           </div>
 
           <p className="mt-8 text-sm text-zinc-500">

@@ -1,231 +1,791 @@
 import { Suspense } from "react";
 import Link from "next/link";
+
 import {
   Box,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   MapPin,
   Plus,
+  Search,
+  SlidersHorizontal,
 } from "lucide-react";
 
 import { prisma } from "@/lib/prisma";
+import { requireOwner } from "@/lib/session";
 
-function statusStyle(status: string) {
-  switch (status) {
-    case "AVAILABLE":
-      return "bg-green-100 text-green-700";
+const PAGE_SIZE = 10;
 
-    case "PENDING_APPROVAL":
-      return "bg-yellow-100 text-yellow-700";
+type DeviceStatusFilter =
+  | "PENDING_APPROVAL"
+  | "AVAILABLE"
+  | "RENTED"
+  | "REJECTED"
+  | "UNAVAILABLE";
 
-    case "RENTED":
-      return "bg-blue-100 text-blue-700";
+type OwnerDevicesPageProps = {
+  searchParams: Promise<{
+    status?: string;
+    q?: string;
+    page?: string;
+  }>;
+};
 
-    case "REJECTED":
-      return "bg-red-100 text-red-700";
+const statusFilters = [
+  {
+    label: "All",
+    value: "ALL",
+  },
+  {
+    label: "Pending",
+    value: "PENDING_APPROVAL",
+  },
+  {
+    label: "Available",
+    value: "AVAILABLE",
+  },
+  {
+    label: "Rented",
+    value: "RENTED",
+  },
+  {
+    label: "Rejected",
+    value: "REJECTED",
+  },
+];
 
-    case "UNAVAILABLE":
-      return "bg-zinc-100 text-zinc-600";
-
-    default:
-      return "bg-zinc-100 text-zinc-600";
-  }
-}
-
-function formatStatus(status: string) {
+function formatStatus(
+  status: string,
+) {
   return status
     .replaceAll("_", " ")
     .toLowerCase()
-    .replace(/\b\w/g, (letter) =>
-      letter.toUpperCase(),
+    .replace(
+      /\b\w/g,
+      (letter) =>
+        letter.toUpperCase(),
     );
 }
 
-async function OwnerDevicesContent() {
-  const owner = await prisma.user.findFirst({
-    where: {
-      role: "OWNER",
-      status: "ACTIVE",
-    },
-    orderBy: {
-      createdAt: "asc",
-    },
-  });
+function statusStyle(
+  status: string,
+) {
+  switch (status) {
+    case "AVAILABLE":
+      return "border-emerald-200 bg-emerald-50 text-emerald-700";
 
-  if (!owner) {
-    return (
-      <div className="rounded-[30px] bg-white p-10 text-center">
-        <div className="text-5xl">
-          👤
-        </div>
+    case "PENDING_APPROVAL":
+      return "border-amber-200 bg-amber-50 text-amber-700";
 
-        <h2 className="mt-5 text-2xl font-black">
-          No owner account found
-        </h2>
+    case "RENTED":
+      return "border-blue-200 bg-blue-50 text-blue-700";
 
-        <p className="mt-2 text-zinc-500">
-          An owner account is required before devices can
-          be listed.
-        </p>
-      </div>
+    case "REJECTED":
+      return "border-red-200 bg-red-50 text-red-700";
+
+    case "UNAVAILABLE":
+      return "border-zinc-200 bg-zinc-100 text-zinc-600";
+
+    default:
+      return "border-zinc-200 bg-zinc-100 text-zinc-600";
+  }
+}
+
+function createPageHref({
+  page,
+  status,
+  search,
+}: {
+  page: number;
+  status: string;
+  search: string;
+}) {
+  const query =
+    new URLSearchParams();
+
+  if (
+    status !== "ALL"
+  ) {
+    query.set(
+      "status",
+      status,
     );
   }
 
-  const devices = await prisma.device.findMany({
-    where: {
-      ownerId: owner.id,
-    },
-    include: {
-      category: true,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-  });
-
-  if (devices.length === 0) {
-    return (
-      <div className="rounded-[35px] border border-dashed border-yellow-200 bg-white p-14 text-center">
-        <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-yellow-100">
-          <Box className="h-9 w-9 text-orange-500" />
-        </div>
-
-        <h2 className="mt-6 text-2xl font-black">
-          No devices listed yet.
-        </h2>
-
-        <p className="mx-auto mt-2 max-w-md text-zinc-500">
-          Turn your unused electronics into income by
-          creating your first GoGoRent listing.
-        </p>
-
-        <Link
-          href="/owner/devices/new"
-          className="mt-7 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 px-7 py-4 font-bold text-white shadow-lg shadow-orange-100"
-        >
-          <Plus className="h-5 w-5" />
-          Add your first device
-        </Link>
-      </div>
+  if (search) {
+    query.set(
+      "q",
+      search,
     );
   }
 
-  return (
-    <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-      {devices.map((device) => (
-        <Link
-          key={device.id}
-          href={`/owner/devices/${device.id}`}
-          className="group overflow-hidden rounded-[30px] border border-yellow-100 bg-white transition hover:-translate-y-1 hover:shadow-xl"
-        >
-          <div className="flex h-52 items-center justify-center bg-gradient-to-br from-yellow-50 to-orange-100">
-            <span className="text-8xl transition group-hover:scale-110">
-              {device.emoji ?? "📦"}
-            </span>
-          </div>
+  if (page > 1) {
+    query.set(
+      "page",
+      page.toString(),
+    );
+  }
 
-          <div className="p-6">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs font-black uppercase tracking-wider text-orange-500">
-                  {device.category.name}
-                </p>
+  const queryString =
+    query.toString();
 
-                <h2 className="mt-1 text-xl font-black text-zinc-900">
-                  {device.name}
-                </h2>
-              </div>
-
-              <span
-                className={`rounded-full px-3 py-1 text-[11px] font-black ${statusStyle(
-                  device.status,
-                )}`}
-              >
-                {formatStatus(device.status)}
-              </span>
-            </div>
-
-            <div className="mt-5">
-              <p className="text-xl font-black">
-                ฿
-                {Number(
-                  device.pricePerDay,
-                ).toLocaleString()}
-
-                <span className="text-sm font-normal text-zinc-400">
-                  {" "}
-                  / day
-                </span>
-              </p>
-            </div>
-
-            <div className="mt-5 flex items-center justify-between border-t border-zinc-100 pt-4 text-sm text-zinc-400">
-              <span className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-
-                {device.location ?? "No location"}
-              </span>
-
-              <span className="flex items-center gap-1">
-                <Clock3 className="h-4 w-4" />
-
-                {device.createdAt.toLocaleDateString()}
-              </span>
-            </div>
-          </div>
-        </Link>
-      ))}
-    </div>
-  );
+  return queryString
+    ? `/owner/devices?${queryString}`
+    : "/owner/devices";
 }
 
-function OwnerDevicesLoading() {
-  return (
-    <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-      {[1, 2, 3].map((item) => (
-        <div
-          key={item}
-          className="h-[420px] animate-pulse rounded-[30px] bg-white"
-        />
-      ))}
-    </div>
-  );
-}
+async function OwnerDevicesContent({
+  searchParams,
+}: OwnerDevicesPageProps) {
+  const owner =
+    await requireOwner();
 
-export default function OwnerDevicesPage() {
+  const params =
+    await searchParams;
+
+  const searchQuery =
+    params.q?.trim() ??
+    "";
+
+  const selectedStatus =
+    statusFilters.some(
+      (filter) =>
+        filter.value ===
+        params.status,
+    )
+      ? params.status!
+      : "ALL";
+
+  const requestedPage =
+    Number(
+      params.page ?? "1",
+    );
+
+  const currentPage =
+    Number.isFinite(
+      requestedPage,
+    ) &&
+    requestedPage > 0
+      ? Math.floor(
+          requestedPage,
+        )
+      : 1;
+
+  const deviceWhere = {
+    ownerId:
+      owner.id,
+
+    ...(selectedStatus !==
+    "ALL"
+      ? {
+          status:
+            selectedStatus as DeviceStatusFilter,
+        }
+      : {}),
+
+    ...(searchQuery
+      ? {
+          OR: [
+            {
+              name: {
+                contains:
+                  searchQuery,
+                mode:
+                  "insensitive" as const,
+              },
+            },
+
+            {
+              brand: {
+                contains:
+                  searchQuery,
+                mode:
+                  "insensitive" as const,
+              },
+            },
+
+            {
+              model: {
+                contains:
+                  searchQuery,
+                mode:
+                  "insensitive" as const,
+              },
+            },
+          ],
+        }
+      : {}),
+  };
+
+  const [
+    totalFilteredDevices,
+    counts,
+  ] =
+    await Promise.all([
+      prisma.device.count({
+        where:
+          deviceWhere,
+      }),
+
+      prisma.device.groupBy({
+        by: ["status"],
+
+        where: {
+          ownerId:
+            owner.id,
+        },
+
+        _count: {
+          _all:
+            true,
+        },
+      }),
+    ]);
+
+  const totalPages =
+    Math.max(
+      1,
+      Math.ceil(
+        totalFilteredDevices /
+          PAGE_SIZE,
+      ),
+    );
+
+  const safePage =
+    Math.min(
+      currentPage,
+      totalPages,
+    );
+
+  const devices =
+    await prisma.device.findMany({
+      where:
+        deviceWhere,
+
+      include: {
+        category:
+          true,
+
+        images: {
+          orderBy: [
+            {
+              isPrimary:
+                "desc",
+            },
+            {
+              createdAt:
+                "asc",
+            },
+          ],
+
+          take: 1,
+        },
+      },
+
+      orderBy: {
+        createdAt:
+          "desc",
+      },
+
+      skip:
+        (safePage - 1) *
+        PAGE_SIZE,
+
+      take:
+        PAGE_SIZE,
+    });
+
+  const totalOwnerDevices =
+    counts.reduce(
+      (
+        total,
+        item,
+      ) =>
+        total +
+        item._count._all,
+      0,
+    );
+
+  function countForStatus(
+    status: string,
+  ) {
+    if (
+      status === "ALL"
+    ) {
+      return totalOwnerDevices;
+    }
+
+    return (
+      counts.find(
+        (item) =>
+          item.status ===
+          status,
+      )?._count._all ??
+      0
+    );
+  }
+
+  const startItem =
+    totalFilteredDevices ===
+    0
+      ? 0
+      : (safePage - 1) *
+          PAGE_SIZE +
+        1;
+
+  const endItem =
+    Math.min(
+      safePage *
+        PAGE_SIZE,
+      totalFilteredDevices,
+    );
+
   return (
-    <div className="px-6 py-10">
-      <div className="mx-auto max-w-7xl">
-        <div className="mb-10 flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+    <>
+      {/* HEADER */}
+      <header className="border-b border-zinc-200 bg-white px-6 py-8 md:px-10 xl:px-12">
+        <div className="mx-auto flex max-w-[1400px] flex-col justify-between gap-5 md:flex-row md:items-center">
           <div>
-            <span className="rounded-full bg-yellow-100 px-4 py-2 text-sm font-bold text-orange-600">
-              My Listings
-            </span>
+            <p className="text-sm font-medium text-zinc-500">
+              Inventory management
+            </p>
 
-            <h1 className="mt-5 text-4xl font-black">
+            <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">
               My Devices
             </h1>
 
-            <p className="mt-2 text-zinc-500">
-              Manage the electronics you rent through
-              GoGoRent.
+            <p className="mt-2 text-sm text-zinc-500">
+              Manage listings, photos,
+              availability and pricing.
             </p>
           </div>
 
           <Link
             href="/owner/devices/new"
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 px-6 py-4 font-bold text-white shadow-lg shadow-orange-100 transition hover:scale-[1.02]"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-zinc-800"
           >
-            <Plus className="h-5 w-5" />
-            Add Device
+            <Plus className="h-4 w-4" />
+
+            Add device
           </Link>
         </div>
+      </header>
 
-        <Suspense
-          fallback={<OwnerDevicesLoading />}
-        >
-          <OwnerDevicesContent />
-        </Suspense>
+      <div className="mx-auto max-w-[1400px] px-6 py-8 md:px-10 xl:px-12">
+        {/* SEARCH + FILTER */}
+        <section className="rounded-2xl border border-zinc-200 bg-white">
+          <div className="flex flex-col gap-4 border-b border-zinc-100 p-5 lg:flex-row lg:items-center lg:justify-between">
+            <form className="relative w-full max-w-md">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
+
+              <input
+                name="q"
+                defaultValue={
+                  searchQuery
+                }
+                placeholder="Search devices..."
+                className="w-full rounded-lg border border-zinc-200 py-2.5 pl-10 pr-4 text-sm outline-none transition focus:border-zinc-400"
+              />
+
+              {selectedStatus !==
+                "ALL" && (
+                <input
+                  type="hidden"
+                  name="status"
+                  value={
+                    selectedStatus
+                  }
+                />
+              )}
+            </form>
+
+            <div className="flex items-center gap-2 text-sm text-zinc-500">
+              <SlidersHorizontal className="h-4 w-4" />
+
+              {totalFilteredDevices}{" "}
+              {totalFilteredDevices ===
+              1
+                ? "listing"
+                : "listings"}
+            </div>
+          </div>
+
+          <div className="flex gap-1 overflow-x-auto px-5 py-3">
+            {statusFilters.map(
+              (filter) => {
+                const active =
+                  selectedStatus ===
+                  filter.value;
+
+                return (
+                  <Link
+                    key={
+                      filter.value
+                    }
+                    href={createPageHref({
+                      page: 1,
+                      status:
+                        filter.value,
+                      search:
+                        searchQuery,
+                    })}
+                    className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      active
+                        ? "bg-zinc-950 text-white"
+                        : "text-zinc-500 hover:bg-zinc-100"
+                    }`}
+                  >
+                    {
+                      filter.label
+                    }
+
+                    <span className="ml-2 text-xs opacity-70">
+                      {countForStatus(
+                        filter.value,
+                      )}
+                    </span>
+                  </Link>
+                );
+              },
+            )}
+          </div>
+        </section>
+
+        {/* EMPTY */}
+        {devices.length ===
+        0 ? (
+          <div className="mt-6 rounded-2xl border border-zinc-200 bg-white py-16 text-center">
+            <Box className="mx-auto h-8 w-8 text-zinc-300" />
+
+            <h2 className="mt-4 font-semibold text-zinc-900">
+              No matching devices
+            </h2>
+
+            <p className="mt-1 text-sm text-zinc-500">
+              Create a listing or adjust
+              your search and filters.
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* TABLE */}
+            <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+              <div className="hidden grid-cols-[2fr_1fr_1fr_1fr_.9fr] border-b border-zinc-200 bg-zinc-50 px-6 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 lg:grid">
+                <span>
+                  Device
+                </span>
+
+                <span>
+                  Status
+                </span>
+
+                <span>
+                  Price
+                </span>
+
+                <span>
+                  Location
+                </span>
+
+                <span className="text-right">
+                  Added
+                </span>
+              </div>
+
+              <div className="divide-y divide-zinc-100">
+                {devices.map(
+                  (
+                    device,
+                  ) => (
+                    <Link
+                      key={
+                        device.id
+                      }
+                      href={`/owner/devices/${device.id}`}
+                      className="grid gap-4 px-6 py-5 transition hover:bg-zinc-50 lg:grid-cols-[2fr_1fr_1fr_1fr_.9fr] lg:items-center"
+                    >
+                      <div className="flex min-w-0 items-center gap-4">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-zinc-100">
+                          {device
+                            .images[0] ? (
+                            <img
+                              src={
+                                device
+                                  .images[0]
+                                  .url
+                              }
+                              alt={
+                                device.name
+                              }
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xl">
+                              {device.emoji ??
+                                "📦"}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-zinc-900">
+                            {
+                              device.name
+                            }
+                          </p>
+
+                          <p className="mt-1 truncate text-xs text-zinc-500">
+                            {
+                              device
+                                .category
+                                .name
+                            }
+
+                            {device.brand
+                              ? ` · ${device.brand}`
+                              : ""}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div>
+                        <span
+                          className={`rounded-md border px-2.5 py-1 text-xs font-semibold ${statusStyle(
+                            device.status,
+                          )}`}
+                        >
+                          {formatStatus(
+                            device.status,
+                          )}
+                        </span>
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-900">
+                          ฿
+                          {Number(
+                            device.pricePerDay,
+                          ).toLocaleString()}
+                        </p>
+
+                        <p className="text-xs text-zinc-400">
+                          per day
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-sm text-zinc-600">
+                        <MapPin className="h-4 w-4 shrink-0 text-zinc-400" />
+
+                        <span className="truncate">
+                          {device.location ??
+                            "Not specified"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-sm text-zinc-500 lg:justify-end">
+                        <Clock3 className="h-4 w-4" />
+
+                        {device.createdAt.toLocaleDateString()}
+                      </div>
+                    </Link>
+                  ),
+                )}
+              </div>
+
+              {/* PAGINATION */}
+              <div className="flex flex-col gap-4 border-t border-zinc-200 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-zinc-500">
+                  Showing{" "}
+                  <span className="font-medium text-zinc-900">
+                    {startItem}
+                  </span>
+                  {" "}–{" "}
+                  <span className="font-medium text-zinc-900">
+                    {endItem}
+                  </span>
+                  {" "}of{" "}
+                  <span className="font-medium text-zinc-900">
+                    {
+                      totalFilteredDevices
+                    }
+                  </span>
+                </p>
+
+                <div className="flex items-center gap-2">
+                  {safePage >
+                  1 ? (
+                    <Link
+                      href={createPageHref({
+                        page:
+                          safePage -
+                          1,
+
+                        status:
+                          selectedStatus,
+
+                        search:
+                          searchQuery,
+                      })}
+                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-zinc-200 px-3 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+
+                      Previous
+                    </Link>
+                  ) : (
+                    <span className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-lg border border-zinc-200 px-3 text-sm text-zinc-300">
+                      <ChevronLeft className="h-4 w-4" />
+
+                      Previous
+                    </span>
+                  )}
+
+                  <div className="hidden items-center gap-1 sm:flex">
+                    {Array.from(
+                      {
+                        length:
+                          totalPages,
+                      },
+                      (
+                        _,
+                        index,
+                      ) =>
+                        index +
+                        1,
+                    )
+                      .filter(
+                        (
+                          pageNumber,
+                        ) =>
+                          pageNumber ===
+                            1 ||
+                          pageNumber ===
+                            totalPages ||
+                          Math.abs(
+                            pageNumber -
+                              safePage,
+                          ) <=
+                            1,
+                      )
+                      .map(
+                        (
+                          pageNumber,
+                          index,
+                          visiblePages,
+                        ) => {
+                          const previous =
+                            visiblePages[
+                              index -
+                                1
+                            ];
+
+                          const showGap =
+                            previous &&
+                            pageNumber -
+                              previous >
+                              1;
+
+                          return (
+                            <div
+                              key={
+                                pageNumber
+                              }
+                              className="flex items-center gap-1"
+                            >
+                              {showGap && (
+                                <span className="px-1 text-zinc-400">
+                                  …
+                                </span>
+                              )}
+
+                              <Link
+                                href={createPageHref({
+                                  page:
+                                    pageNumber,
+
+                                  status:
+                                    selectedStatus,
+
+                                  search:
+                                    searchQuery,
+                                })}
+                                className={`flex h-9 min-w-9 items-center justify-center rounded-lg px-2 text-sm font-medium transition ${
+                                  pageNumber ===
+                                  safePage
+                                    ? "bg-zinc-950 text-white"
+                                    : "border border-zinc-200 text-zinc-600 hover:bg-zinc-50"
+                                }`}
+                              >
+                                {
+                                  pageNumber
+                                }
+                              </Link>
+                            </div>
+                          );
+                        },
+                      )}
+                  </div>
+
+                  {safePage <
+                  totalPages ? (
+                    <Link
+                      href={createPageHref({
+                        page:
+                          safePage +
+                          1,
+
+                        status:
+                          selectedStatus,
+
+                        search:
+                          searchQuery,
+                      })}
+                      className="inline-flex h-9 items-center gap-1 rounded-lg border border-zinc-200 px-3 text-sm font-medium text-zinc-600 transition hover:bg-zinc-50"
+                    >
+                      Next
+
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
+                  ) : (
+                    <span className="inline-flex h-9 cursor-not-allowed items-center gap-1 rounded-lg border border-zinc-200 px-3 text-sm text-zinc-300">
+                      Next
+
+                      <ChevronRight className="h-4 w-4" />
+                    </span>
+                  )}
+                </div>
+              </div>
+            </section>
+          </>
+        )}
       </div>
+    </>
+  );
+}
+
+function Loading() {
+  return (
+    <div className="p-10">
+      <div className="h-[550px] animate-pulse rounded-2xl bg-white" />
     </div>
+  );
+}
+
+export default function OwnerDevicesPage({
+  searchParams,
+}: OwnerDevicesPageProps) {
+  return (
+    <Suspense
+      fallback={
+        <Loading />
+      }
+    >
+      <OwnerDevicesContent
+        searchParams={
+          searchParams
+        }
+      />
+    </Suspense>
   );
 }

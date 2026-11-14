@@ -318,6 +318,13 @@ async function NotificationsContent({
                       null,
                       notification.id,
                     );
+                  const bookingHref =
+                    notification.rentalId
+                      ? notification.type ===
+                        "BOOKING_REQUESTED"
+                        ? `/owner/requests#${notification.rentalId}`
+                        : `/owner/rentals?status=CANCELLED#${notification.rentalId}`
+                      : null;
 
                   return (
                     <div
@@ -344,17 +351,28 @@ async function NotificationsContent({
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
                           <div>
-                            <p
-                              className={`text-sm ${
-                                notification.isRead
-                                  ? "font-medium text-zinc-800"
-                                  : "font-semibold text-zinc-950"
-                              }`}
-                            >
-                              {
-                                notification.title
-                              }
-                            </p>
+                            {bookingHref ? (
+                              <Link
+                                href={bookingHref}
+                                className={`text-sm hover:underline ${
+                                  notification.isRead
+                                    ? "font-medium text-zinc-800"
+                                    : "font-semibold text-zinc-950"
+                                }`}
+                              >
+                                {notification.title}
+                              </Link>
+                            ) : (
+                              <p
+                                className={`text-sm ${
+                                  notification.isRead
+                                    ? "font-medium text-zinc-800"
+                                    : "font-semibold text-zinc-950"
+                                }`}
+                              >
+                                {notification.title}
+                              </p>
+                            )}
 
                             <p className="mt-1 max-w-3xl text-sm leading-6 text-zinc-500">
                               {

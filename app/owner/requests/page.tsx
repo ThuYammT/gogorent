@@ -12,6 +12,7 @@ import {
 
 import {
   approveRentalRequest,
+  cancelOwnerBooking,
   rejectRentalRequest,
 } from "./actions";
 
@@ -123,6 +124,12 @@ async function RequestsContent() {
                     rental.id,
                   );
 
+                const cancelAction =
+                  cancelOwnerBooking.bind(
+                    null,
+                    rental.id,
+                  );
+
                 const image =
                   rental.device
                     .images[0];
@@ -132,6 +139,7 @@ async function RequestsContent() {
                     key={
                       rental.id
                     }
+                    id={rental.id}
                     className="overflow-hidden rounded-2xl border border-zinc-200 bg-white"
                   >
                     <div className="grid gap-0 lg:grid-cols-[230px_1fr_300px]">
@@ -347,6 +355,15 @@ async function RequestsContent() {
                             >
                               <X className="h-4 w-4" />
                               Reject request
+                            </button>
+                          </form>
+
+                          <form action={cancelAction}>
+                            <button
+                              type="submit"
+                              className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm font-semibold text-zinc-600 transition hover:bg-zinc-100"
+                            >
+                              Cancel booking
                             </button>
                           </form>
                         </div>

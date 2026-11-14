@@ -71,3 +71,30 @@ export async function requireOwner() {
 
   return owner;
 }
+
+export async function requireRenter() {
+  const session = await getSession();
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  const renter = await prisma.user.findUnique({
+    where: {
+      id: session.userId,
+    },
+  });
+
+  if (!renter) {
+    redirect("/login");
+  }
+
+  if (
+    renter.role !== "RENTER" ||
+    renter.status !== "ACTIVE"
+  ) {
+    redirect("/");
+  }
+
+  return renter;
+}

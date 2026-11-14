@@ -2,7 +2,29 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 
 ## Getting Started
 
-First, run the development server:
+Configure the project before starting the development server:
+
+1. Create a Supabase project and a public Storage bucket named `device-images`.
+2. Add the following values to your local `.env` file:
+
+   ```dotenv
+   DATABASE_URL="your PostgreSQL connection string"
+   NEXT_PUBLIC_SUPABASE_URL="https://your-project.supabase.co"
+   SUPABASE_SECRET_KEY="your Supabase secret key"
+   ```
+
+   Find the project URL and secret key in your Supabase project's API settings.
+   The legacy `SUPABASE_SERVICE_ROLE_KEY` can be used instead of
+   `SUPABASE_SECRET_KEY`. Keep server keys private; do not use a publishable
+   or anon key as the server key, and do not commit `.env`.
+3. Generate the Prisma client and apply migrations to the configured database:
+
+   ```bash
+   npx prisma generate
+   npx prisma migrate deploy
+   ```
+
+Then run the development server:
 
 ```bash
 npm run dev
@@ -14,7 +36,13 @@ pnpm dev
 bun dev
 ```
 
+Restart the development server after changing environment variables.
+
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+When an owner submits a new device, each active administrator receives an
+in-app notification linking to the listing review. Administrators can find
+their notifications and mark them as read in the admin sidebar.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

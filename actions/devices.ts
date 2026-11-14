@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { notifyAdminsOfNewListing } from "@/lib/listing-notifications";
 
 /* ======================================================
    DEVICE CONFIG
@@ -562,12 +563,23 @@ export async function createDevice(
       imageFiles,
       0,
     );
+
+    await prisma.$transaction(async (transaction) => {
+      await notifyAdminsOfNewListing(transaction, device);
+    });
   } catch (error) {
-    /*
-     * Creating a device with failed
-     * image upload should not leave
-     * an empty listing behind.
-     */
+    // Roll back the listing and any uploaded images if submission fails.
+    const images = await prisma.deviceImage.findMany({
+      where: { deviceId: device.id },
+      select: { url: true },
+    });
+
+    const paths = images
+      .map((image) => storagePathFromPublicUrl(image.url))
+      .filter((path): path is string => path !== null);
+
+    await removeStorageFiles(paths);
+
     await prisma.device.delete({
       where: {
         id: device.id,
@@ -588,6 +600,11 @@ export async function createDevice(
   revalidatePath(
     "/devices",
   );
+
+  revalidatePath("/admin", "layout");
+  revalidatePath("/admin/listings");
+  revalidatePath("/admin/notifications");
+  revalidatePath("/admin/dashboard");
 
   revalidatePath("/");
 

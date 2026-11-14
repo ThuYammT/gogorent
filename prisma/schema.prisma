@@ -111,6 +111,8 @@ model Device {
   pricePerDay   Decimal         @db.Decimal(10, 2)
   depositAmount Decimal         @db.Decimal(10, 2)
   location      String?
+  latitude      Float?
+  longitude     Float?
   emoji         String?
   status        DeviceStatus    @default(PENDING_APPROVAL)
   avgRating     Float           @default(0)
@@ -255,6 +257,8 @@ model Favorite {
 model Notification {
   id        String   @id @default(cuid())
   userId    String
+  deviceId  String?
+  type      String?
   title     String
   message   String
   isRead    Boolean  @default(false)

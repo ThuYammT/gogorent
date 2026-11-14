@@ -1,31 +1,20 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
+import {
+  randomUUID,
+} from "node:crypto";
 
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import {
+  revalidatePath,
+} from "next/cache";
+
+import {
+  redirect,
+} from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-
-/* ======================================================
-   DEVICE CONFIG
-====================================================== */
-
-const allowedConditions = [
-  "NEW",
-  "LIKE_NEW",
-  "GOOD",
-  "FAIR",
-] as const;
-
-type DeviceConditionValue =
-  (typeof allowedConditions)[number];
-
-/* ======================================================
-   IMAGE CONFIG
-====================================================== */
 
 const DEVICE_IMAGE_BUCKET =
   "device-images";
@@ -39,54 +28,164 @@ const ALLOWED_IMAGE_TYPES = [
   "image/jpeg",
   "image/png",
   "image/webp",
-];
+] as const;
 
-/* ======================================================
-   DEVICE FORM
-====================================================== */
+const allowedConditions = [
+  "NEW",
+  "LIKE_NEW",
+  "GOOD",
+  "FAIR",
+] as const;
+
+type DeviceConditionValue =
+  (typeof allowedConditions)[number];
+
+function getImageFiles(
+  formData: FormData,
+) {
+  return formData
+    .getAll("images")
+    .filter(
+      (value): value is File =>
+        value instanceof
+          File &&
+        value.size > 0,
+    );
+}
+
+function validateImageFiles(
+  files: File[],
+  existingImageCount = 0,
+) {
+  if (
+    files.length +
+      existingImageCount >
+    MAX_IMAGES
+  ) {
+    throw new Error(
+      `A listing can have a maximum of ${MAX_IMAGES} images.`,
+    );
+  }
+
+  for (const file of files) {
+    if (
+      !ALLOWED_IMAGE_TYPES.includes(
+        file.type as
+          (typeof ALLOWED_IMAGE_TYPES)[number],
+      )
+    ) {
+      throw new Error(
+        `"${file.name}" is not supported. Please use JPG, PNG or WebP.`,
+      );
+    }
+
+    if (
+      file.size >
+      MAX_FILE_SIZE
+    ) {
+      throw new Error(
+        `"${file.name}" is larger than 5 MB.`,
+      );
+    }
+  }
+}
 
 function readDeviceForm(
   formData: FormData,
 ) {
-  const name = String(
-    formData.get("name") ?? "",
-  ).trim();
+  const name =
+    String(
+      formData.get(
+        "name",
+      ) ?? "",
+    ).trim();
 
-  const categoryId = String(
-    formData.get("categoryId") ?? "",
-  ).trim();
+  const categoryId =
+    String(
+      formData.get(
+        "categoryId",
+      ) ?? "",
+    ).trim();
 
-  const description = String(
-    formData.get("description") ?? "",
-  ).trim();
+  const description =
+    String(
+      formData.get(
+        "description",
+      ) ?? "",
+    ).trim();
 
-  const brand = String(
-    formData.get("brand") ?? "",
-  ).trim();
+  const brand =
+    String(
+      formData.get(
+        "brand",
+      ) ?? "",
+    ).trim();
 
-  const model = String(
-    formData.get("model") ?? "",
-  ).trim();
+  const model =
+    String(
+      formData.get(
+        "model",
+      ) ?? "",
+    ).trim();
 
-  const conditionValue = String(
-    formData.get("condition") ?? "",
-  );
+  const conditionValue =
+    String(
+      formData.get(
+        "condition",
+      ) ?? "",
+    );
 
-  const pricePerDay = Number(
-    formData.get("pricePerDay"),
-  );
+  const pricePerDay =
+    Number(
+      formData.get(
+        "pricePerDay",
+      ),
+    );
 
-  const depositAmount = Number(
-    formData.get("depositAmount"),
-  );
+  const depositAmount =
+    Number(
+      formData.get(
+        "depositAmount",
+      ),
+    );
 
-  const location = String(
-    formData.get("location") ?? "",
-  ).trim();
+  const location =
+    String(
+      formData.get(
+        "location",
+      ) ?? "",
+    ).trim();
 
-  const emoji = String(
-    formData.get("emoji") ?? "",
-  ).trim();
+  const latitudeRaw =
+    String(
+      formData.get(
+        "latitude",
+      ) ?? "",
+    ).trim();
+
+  const longitudeRaw =
+    String(
+      formData.get(
+        "longitude",
+      ) ?? "",
+    ).trim();
+
+  const emoji =
+    String(
+      formData.get(
+        "emoji",
+      ) ?? "",
+    ).trim();
+
+  const latitude =
+    latitudeRaw
+      ? Number(latitudeRaw)
+      : null;
+
+  const longitude =
+    longitudeRaw
+      ? Number(longitudeRaw)
+      : null;
 
   if (!name) {
     throw new Error(
@@ -117,7 +216,9 @@ function readDeviceForm(
   }
 
   if (
-    Number.isNaN(pricePerDay) ||
+    !Number.isFinite(
+      pricePerDay,
+    ) ||
     pricePerDay <= 0
   ) {
     throw new Error(
@@ -126,7 +227,9 @@ function readDeviceForm(
   }
 
   if (
-    Number.isNaN(depositAmount) ||
+    !Number.isFinite(
+      depositAmount,
+    ) ||
     depositAmount < 0
   ) {
     throw new Error(
@@ -134,10 +237,48 @@ function readDeviceForm(
     );
   }
 
+  /*
+   * MAP LOCATION REQUIRED
+   */
+  if (
+    !location ||
+    latitude === null ||
+    longitude === null
+  ) {
+    throw new Error(
+      "Please choose a pickup location on the map.",
+    );
+  }
+
+  if (
+    !Number.isFinite(
+      latitude,
+    ) ||
+    latitude < -90 ||
+    latitude > 90
+  ) {
+    throw new Error(
+      "Invalid latitude.",
+    );
+  }
+
+  if (
+    !Number.isFinite(
+      longitude,
+    ) ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    throw new Error(
+      "Invalid longitude.",
+    );
+  }
+
   return {
     name,
     categoryId,
     description,
+
     brand,
     model,
 
@@ -146,14 +287,14 @@ function readDeviceForm(
 
     pricePerDay,
     depositAmount,
+
     location,
+    latitude,
+    longitude,
+
     emoji,
   };
 }
-
-/* ======================================================
-   CATEGORY VALIDATION
-====================================================== */
 
 async function validateCategory(
   categoryId: string,
@@ -162,10 +303,6 @@ async function validateCategory(
     await prisma.category.findUnique({
       where: {
         id: categoryId,
-      },
-
-      select: {
-        id: true,
       },
     });
 
@@ -176,99 +313,49 @@ async function validateCategory(
   }
 }
 
-/* ======================================================
-   IMAGE HELPERS
-====================================================== */
-
-function getImageFiles(
-  formData: FormData,
-) {
-  const values =
-    formData.getAll("images");
-
-  return values.filter(
-    (value): value is File =>
-      value instanceof File &&
-      value.size > 0,
-  );
-}
-
-function validateImageFiles(
-  files: File[],
-) {
-  if (files.length > MAX_IMAGES) {
-    throw new Error(
-      `You can upload a maximum of ${MAX_IMAGES} images.`,
-    );
-  }
-
-  for (const file of files) {
-    if (
-      !ALLOWED_IMAGE_TYPES.includes(
-        file.type,
-      )
-    ) {
-      throw new Error(
-        `${file.name} is not a supported image format. Please use JPG, PNG or WEBP.`,
-      );
-    }
-
-    if (
-      file.size >
-      MAX_FILE_SIZE
-    ) {
-      throw new Error(
-        `${file.name} is larger than 5 MB.`,
-      );
-    }
-  }
-}
-
-/*
- * Extracts:
- *
- * deviceId/random-file-name.jpg
- *
- * from:
- *
- * https://project.supabase.co/storage/v1/object/public/
- * device-images/deviceId/random-file-name.jpg
- */
 function storagePathFromPublicUrl(
-  url: string,
+  publicUrl: string,
 ) {
   const marker =
     `/storage/v1/object/public/${DEVICE_IMAGE_BUCKET}/`;
 
   const markerIndex =
-    url.indexOf(marker);
+    publicUrl.indexOf(
+      marker,
+    );
 
-  if (markerIndex === -1) {
+  if (
+    markerIndex === -1
+  ) {
     return null;
   }
 
-  const pathWithQuery =
-    url.slice(
+  return decodeURIComponent(
+    publicUrl.slice(
       markerIndex +
         marker.length,
-    );
-
-  const path =
-    pathWithQuery.split("?")[0];
-
-  try {
-    return decodeURIComponent(
-      path,
-    );
-  } catch {
-    return path;
-  }
+    ),
+  );
 }
 
 async function removeStorageFiles(
-  paths: string[],
+  urls: string[],
 ) {
-  if (paths.length === 0) {
+  const paths =
+    urls
+      .map(
+        storagePathFromPublicUrl,
+      )
+      .filter(
+        (
+          path,
+        ): path is string =>
+          Boolean(path),
+      );
+
+  if (
+    paths.length === 0
+  ) {
     return;
   }
 
@@ -283,38 +370,39 @@ async function removeStorageFiles(
 
   if (error) {
     throw new Error(
-      `Failed to remove image from storage: ${error.message}`,
+      `Unable to remove device images: ${error.message}`,
     );
   }
 }
 
-/* ======================================================
-   IMAGE UPLOAD
-====================================================== */
+function extensionForFile(
+  file: File,
+) {
+  switch (file.type) {
+    case "image/jpeg":
+      return "jpg";
+
+    case "image/png":
+      return "png";
+
+    case "image/webp":
+      return "webp";
+
+    default:
+      return "jpg";
+  }
+}
 
 async function uploadDeviceImages(
   deviceId: string,
   files: File[],
   existingImageCount: number,
 ) {
-  if (files.length === 0) {
-    return;
-  }
+  const uploadedPaths:
+    string[] = [];
 
-  validateImageFiles(files);
-
-  if (
-    existingImageCount +
-      files.length >
-    MAX_IMAGES
-  ) {
-    throw new Error(
-      `A device can have a maximum of ${MAX_IMAGES} images.`,
-    );
-  }
-
-  const uploadedPaths: string[] =
-    [];
+  const createdImageIds:
+    string[] = [];
 
   try {
     for (
@@ -325,118 +413,99 @@ async function uploadDeviceImages(
       const file =
         files[index];
 
-      const extensionFromName =
-        file.name
-          .split(".")
-          .pop()
-          ?.toLowerCase();
+      const extension =
+        extensionForFile(
+          file,
+        );
 
-      let extension =
-        extensionFromName ||
-        "jpg";
+      const path =
+        `${deviceId}/${randomUUID()}.${extension}`;
 
-      /*
-       * Keep extension predictable.
-       */
-      if (
-        file.type ===
-        "image/jpeg"
-      ) {
-        extension = "jpg";
-      }
-
-      if (
-        file.type ===
-        "image/png"
-      ) {
-        extension = "png";
-      }
-
-      if (
-        file.type ===
-        "image/webp"
-      ) {
-        extension = "webp";
-      }
-
-      const fileName =
-        `${randomUUID()}.${extension}`;
-
-      const storagePath =
-        `${deviceId}/${fileName}`;
-
-      const arrayBuffer =
+      const buffer =
         await file.arrayBuffer();
 
       const {
-        error: uploadError,
+        error:
+          uploadError,
       } =
         await supabaseAdmin.storage
           .from(
             DEVICE_IMAGE_BUCKET,
           )
           .upload(
-            storagePath,
-            arrayBuffer,
+            path,
+            buffer,
             {
               contentType:
                 file.type,
 
-              cacheControl:
-                "3600",
-
-              upsert: false,
+              upsert:
+                false,
             },
           );
 
-      if (uploadError) {
+      if (
+        uploadError
+      ) {
         throw new Error(
-          `Failed to upload ${file.name}: ${uploadError.message}`,
+          uploadError.message,
         );
       }
 
       uploadedPaths.push(
-        storagePath,
+        path,
       );
 
       const {
-        data: publicUrlData,
+        data:
+          publicUrlData,
       } =
         supabaseAdmin.storage
           .from(
             DEVICE_IMAGE_BUCKET,
           )
           .getPublicUrl(
-            storagePath,
+            path,
           );
 
-      await prisma.deviceImage.create({
-        data: {
-          deviceId,
+      const image =
+        await prisma.deviceImage.create({
+          data: {
+            deviceId,
 
-          url:
-            publicUrlData.publicUrl,
+            url:
+              publicUrlData
+                .publicUrl,
 
-          /*
-           * First image ever uploaded
-           * becomes the cover image.
-           */
-          isPrimary:
-            existingImageCount ===
-              0 &&
-            index === 0,
+            isPrimary:
+              existingImageCount ===
+                0 &&
+              index === 0,
+          },
+        });
+
+      createdImageIds.push(
+        image.id,
+      );
+    }
+  } catch (error) {
+    if (
+      createdImageIds.length >
+      0
+    ) {
+      await prisma.deviceImage.deleteMany({
+        where: {
+          id: {
+            in:
+              createdImageIds,
+          },
         },
       });
     }
-  } catch (error) {
-    /*
-     * If something fails midway,
-     * remove newly uploaded files
-     * so Storage does not collect
-     * unused files.
-     */
+
     if (
-      uploadedPaths.length > 0
+      uploadedPaths.length >
+      0
     ) {
       await supabaseAdmin.storage
         .from(
@@ -447,38 +516,56 @@ async function uploadDeviceImages(
         );
     }
 
-    /*
-     * Remove any database image
-     * records created during this
-     * upload attempt.
-     */
-    await prisma.deviceImage.deleteMany({
-      where: {
-        deviceId,
-
-        url: {
-          in:
-            uploadedPaths.map(
-              (path) =>
-                supabaseAdmin.storage
-                  .from(
-                    DEVICE_IMAGE_BUCKET,
-                  )
-                  .getPublicUrl(
-                    path,
-                  ).data
-                  .publicUrl,
-            ),
-        },
-      },
-    });
-
     throw error;
   }
 }
 
+function revalidateDevicePages(
+  deviceId?: string,
+) {
+  revalidatePath(
+    "/owner/dashboard",
+  );
+
+  revalidatePath(
+    "/owner/devices",
+  );
+
+  revalidatePath(
+    "/admin/dashboard",
+  );
+
+  revalidatePath(
+    "/admin/listings",
+  );
+
+  revalidatePath(
+    "/devices",
+  );
+
+  revalidatePath("/");
+
+  if (deviceId) {
+    revalidatePath(
+      `/owner/devices/${deviceId}`,
+    );
+
+    revalidatePath(
+      `/owner/devices/${deviceId}/edit`,
+    );
+
+    revalidatePath(
+      `/admin/listings/${deviceId}`,
+    );
+
+    revalidatePath(
+      `/devices/${deviceId}`,
+    );
+  }
+}
+
 /* ======================================================
-   CREATE DEVICE
+   CREATE
 ====================================================== */
 
 export async function createDevice(
@@ -492,13 +579,13 @@ export async function createDevice(
       formData,
     );
 
-  const imageFiles =
+  const files =
     getImageFiles(
       formData,
     );
 
   validateImageFiles(
-    imageFiles,
+    files,
   );
 
   await validateCategory(
@@ -538,58 +625,46 @@ export async function createDevice(
           data.depositAmount,
 
         location:
-          data.location ||
-          null,
+          data.location,
+
+        latitude:
+          data.latitude,
+
+        longitude:
+          data.longitude,
 
         emoji:
           data.emoji ||
           "📦",
 
-        /*
-         * Owner listings require
-         * administrator approval.
-         */
         status:
           "PENDING_APPROVAL",
 
-        avgRating: 0,
+        avgRating:
+          0,
       },
     });
 
   try {
     await uploadDeviceImages(
       device.id,
-      imageFiles,
+      files,
       0,
     );
   } catch (error) {
-    /*
-     * Creating a device with failed
-     * image upload should not leave
-     * an empty listing behind.
-     */
     await prisma.device.delete({
       where: {
-        id: device.id,
+        id:
+          device.id,
       },
     });
 
     throw error;
   }
 
-  revalidatePath(
-    "/owner/dashboard",
+  revalidateDevicePages(
+    device.id,
   );
-
-  revalidatePath(
-    "/owner/devices",
-  );
-
-  revalidatePath(
-    "/devices",
-  );
-
-  revalidatePath("/");
 
   redirect(
     `/owner/devices/${device.id}`,
@@ -597,7 +672,7 @@ export async function createDevice(
 }
 
 /* ======================================================
-   UPDATE DEVICE
+   UPDATE
 ====================================================== */
 
 export async function updateDevice(
@@ -618,11 +693,18 @@ export async function updateDevice(
       },
 
       include: {
-        images: true,
+        _count: {
+          select: {
+            images:
+              true,
+          },
+        },
       },
     });
 
-  if (!existingDevice) {
+  if (
+    !existingDevice
+  ) {
     throw new Error(
       "Device not found or you do not own this listing.",
     );
@@ -642,41 +724,33 @@ export async function updateDevice(
       formData,
     );
 
-  const imageFiles =
+  const files =
     getImageFiles(
       formData,
     );
 
   validateImageFiles(
-    imageFiles,
+    files,
+    existingDevice
+      ._count
+      .images,
   );
-
-  if (
-    existingDevice.images
-      .length +
-      imageFiles.length >
-    MAX_IMAGES
-  ) {
-    throw new Error(
-      `A device can have a maximum of ${MAX_IMAGES} images.`,
-    );
-  }
 
   await validateCategory(
     data.categoryId,
   );
 
-  /*
-   * Upload new images first.
-   *
-   * Existing images remain untouched.
-   */
-  await uploadDeviceImages(
-    deviceId,
-    imageFiles,
-    existingDevice.images
-      .length,
-  );
+  if (
+    files.length > 0
+  ) {
+    await uploadDeviceImages(
+      deviceId,
+      files,
+      existingDevice
+        ._count
+        .images,
+    );
+  }
 
   await prisma.device.update({
     where: {
@@ -712,43 +786,30 @@ export async function updateDevice(
         data.depositAmount,
 
       location:
-        data.location ||
-        null,
+        data.location,
+
+      latitude:
+        data.latitude,
+
+      longitude:
+        data.longitude,
 
       emoji:
         data.emoji ||
         "📦",
 
       /*
-       * Editing an approved listing
-       * sends it back to admin review.
+       * Any owner edit goes
+       * back through admin review.
        */
       status:
         "PENDING_APPROVAL",
     },
   });
 
-  revalidatePath(
-    `/owner/devices/${deviceId}`,
+  revalidateDevicePages(
+    deviceId,
   );
-
-  revalidatePath(
-    `/owner/devices/${deviceId}/edit`,
-  );
-
-  revalidatePath(
-    "/owner/dashboard",
-  );
-
-  revalidatePath(
-    "/owner/devices",
-  );
-
-  revalidatePath(
-    "/devices",
-  );
-
-  revalidatePath("/");
 
   redirect(
     `/owner/devices/${deviceId}`,
@@ -756,11 +817,12 @@ export async function updateDevice(
 }
 
 /* ======================================================
-   DELETE INDIVIDUAL DEVICE IMAGE
+   DELETE IMAGE
 ====================================================== */
 
 export async function deleteDeviceImage(
   imageId: string,
+  _formData?: FormData,
 ) {
   const owner =
     await requireOwner();
@@ -778,22 +840,14 @@ export async function deleteDeviceImage(
       },
 
       include: {
-        device: {
-          include: {
-            images: {
-              orderBy: {
-                createdAt:
-                  "asc",
-              },
-            },
-          },
-        },
+        device:
+          true,
       },
     });
 
   if (!image) {
     throw new Error(
-      "Image not found or you do not own this listing.",
+      "Image not found.",
     );
   }
 
@@ -806,19 +860,9 @@ export async function deleteDeviceImage(
     );
   }
 
-  const storagePath =
-    storagePathFromPublicUrl(
-      image.url,
-    );
-
-  if (storagePath) {
-    await removeStorageFiles([
-      storagePath,
-    ]);
-  }
-
-  const wasPrimary =
-    image.isPrimary;
+  await removeStorageFiles([
+    image.url,
+  ]);
 
   await prisma.deviceImage.delete({
     where: {
@@ -827,12 +871,9 @@ export async function deleteDeviceImage(
     },
   });
 
-  /*
-   * If the cover image was deleted,
-   * promote the oldest remaining
-   * image to cover.
-   */
-  if (wasPrimary) {
+  if (
+    image.isPrimary
+  ) {
     const nextImage =
       await prisma.deviceImage.findFirst({
         where: {
@@ -861,10 +902,6 @@ export async function deleteDeviceImage(
     }
   }
 
-  /*
-   * Image changes should also
-   * trigger review again.
-   */
   await prisma.device.update({
     where: {
       id:
@@ -877,35 +914,18 @@ export async function deleteDeviceImage(
     },
   });
 
-  revalidatePath(
-    `/owner/devices/${image.deviceId}`,
+  revalidateDevicePages(
+    image.deviceId,
   );
-
-  revalidatePath(
-    `/owner/devices/${image.deviceId}/edit`,
-  );
-
-  revalidatePath(
-    "/owner/devices",
-  );
-
-  revalidatePath(
-    "/owner/dashboard",
-  );
-
-  revalidatePath(
-    "/devices",
-  );
-
-  revalidatePath("/");
 }
 
 /* ======================================================
-   SET PRIMARY / COVER IMAGE
+   SET COVER
 ====================================================== */
 
 export async function setPrimaryDeviceImage(
   imageId: string,
+  _formData?: FormData,
 ) {
   const owner =
     await requireOwner();
@@ -923,13 +943,14 @@ export async function setPrimaryDeviceImage(
       },
 
       include: {
-        device: true,
+        device:
+          true,
       },
     });
 
   if (!image) {
     throw new Error(
-      "Image not found or you do not own this listing.",
+      "Image not found.",
     );
   }
 
@@ -938,7 +959,7 @@ export async function setPrimaryDeviceImage(
     "RENTED"
   ) {
     throw new Error(
-      "The cover image cannot be changed while the device is rented.",
+      "Images cannot be changed while the device is rented.",
     );
   }
 
@@ -980,27 +1001,9 @@ export async function setPrimaryDeviceImage(
     }),
   ]);
 
-  revalidatePath(
-    `/owner/devices/${image.deviceId}`,
+  revalidateDevicePages(
+    image.deviceId,
   );
-
-  revalidatePath(
-    `/owner/devices/${image.deviceId}/edit`,
-  );
-
-  revalidatePath(
-    "/owner/devices",
-  );
-
-  revalidatePath(
-    "/owner/dashboard",
-  );
-
-  revalidatePath(
-    "/devices",
-  );
-
-  revalidatePath("/");
 }
 
 /* ======================================================
@@ -1024,7 +1027,8 @@ export async function deleteDevice(
       },
 
       include: {
-        images: true,
+        images:
+          true,
 
         _count: {
           select: {
@@ -1050,52 +1054,22 @@ export async function deleteDevice(
     );
   }
 
-  /*
-   * Preserve rental history.
-   */
   if (
     device._count.rentals >
     0
   ) {
     throw new Error(
-      "This device cannot be deleted because it has rental history.",
+      "This listing cannot be deleted because it has rental history.",
     );
   }
 
-  /*
-   * Remove physical Storage
-   * objects first.
-   */
-  const storagePaths =
-    device.images
-      .map((image) =>
-        storagePathFromPublicUrl(
-          image.url,
-        ),
-      )
-      .filter(
-        (
-          path,
-        ): path is string =>
-          Boolean(path),
-      );
+  await removeStorageFiles(
+    device.images.map(
+      (image) =>
+        image.url,
+    ),
+  );
 
-  if (
-    storagePaths.length >
-    0
-  ) {
-    await removeStorageFiles(
-      storagePaths,
-    );
-  }
-
-  /*
-   * DeviceImage rows are removed
-   * automatically because your
-   * Prisma relation uses:
-   *
-   * onDelete: Cascade
-   */
   await prisma.device.delete({
     where: {
       id:
@@ -1103,19 +1077,7 @@ export async function deleteDevice(
     },
   });
 
-  revalidatePath(
-    "/owner/dashboard",
-  );
-
-  revalidatePath(
-    "/owner/devices",
-  );
-
-  revalidatePath(
-    "/devices",
-  );
-
-  revalidatePath("/");
+  revalidateDevicePages();
 
   redirect(
     "/owner/devices",

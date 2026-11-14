@@ -12,6 +12,15 @@ const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
 
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "kgpcthbzkkvedvgbbteo.supabase.co",
+      },
+    ],
+  },
+
   turbopack: {
     rules: {
       "*.css": {

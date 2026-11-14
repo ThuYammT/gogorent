@@ -3,38 +3,23 @@ import {
   type ReactNode,
 } from "react";
 
-import RenterSidebar from "@/components/renter/RenterSidebar";
-import { prisma } from "@/lib/prisma";
+import Navbar from "@/components/layout/Navbar";
+import RenterAccountNav from "@/components/renter/RenterAccountNav";
 import { requireRenter } from "@/lib/session";
 
-async function RenterShell({
+async function RenterContent({
   children,
 }: {
   children: ReactNode;
 }) {
-  const renter = await requireRenter();
-
-  const unreadCount =
-    await prisma.notification.count({
-      where: {
-        userId: renter.id,
-        isRead: false,
-      },
-    });
+  await requireRenter();
 
   return (
-    <div className="min-h-screen bg-[#f6f7f9]">
-      <RenterSidebar
-        renter={{
-          name: renter.name,
-          email: renter.email,
-        }}
-        unreadCount={unreadCount}
-      />
+    <div className="min-h-screen bg-[#f7f7f8]">
+      <Navbar />
+      <RenterAccountNav />
 
-      <div className="min-h-screen lg:pl-72">
-        {children}
-      </div>
+      {children}
     </div>
   );
 }
@@ -47,14 +32,14 @@ export default function RenterLayout({
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#f6f7f9] p-6 text-sm text-zinc-500">
-          Loading renter workspace...
+        <div className="min-h-screen bg-[#f7f7f8] p-6 text-sm text-zinc-500">
+          Loading account...
         </div>
       }
     >
-      <RenterShell>
+      <RenterContent>
         {children}
-      </RenterShell>
+      </RenterContent>
     </Suspense>
   );
 }

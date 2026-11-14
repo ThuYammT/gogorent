@@ -16,6 +16,8 @@ import {
 import Navbar from "@/components/layout/Navbar";
 import NavbarFallback from "@/components/layout/NavbarFallback";
 
+import { createBookingRequest } from "./actions";
+
 import { prisma } from "@/lib/prisma";
 
 type DeviceDetailPageProps = {
@@ -368,57 +370,101 @@ async function DeviceDetail({
               </span>
             </div>
 
-            <div className="mt-7">
-              <label className="text-sm font-bold">
-                Rental dates
-              </label>
-
-              <div className="mt-2 flex items-center gap-3 rounded-2xl border border-zinc-200 px-4 py-4">
-                <Calendar className="h-5 w-5 text-orange-500" />
-
-                <span className="text-sm text-zinc-500">
-                  Choose your rental dates
-                </span>
-              </div>
-            </div>
-
-            <div className="mt-7 space-y-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-zinc-500">
-                  Price per day
-                </span>
-
-                <b>
-                  ฿
-                  {Number(
-                    device.pricePerDay,
-                  ).toLocaleString()}
-                </b>
-              </div>
-
-              <div className="flex justify-between">
-                <span className="text-zinc-500">
-                  Security deposit
-                </span>
-
-                <b>
-                  ฿
-                  {Number(
-                    device.depositAmount,
-                  ).toLocaleString()}
-                </b>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              className="mt-7 w-full rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 py-4 font-black text-white shadow-lg shadow-orange-100 transition hover:scale-[1.02]"
+            <form
+              action={createBookingRequest.bind(
+                null,
+                device.id,
+              )}
             >
-              Request to rent
-            </button>
+              <div className="mt-7">
+                <label
+                  htmlFor="startDate"
+                  className="text-sm font-bold"
+                >
+                  Rental dates
+                </label>
+
+                <div className="mt-2 grid gap-3">
+                  <div className="flex items-center gap-3 rounded-2xl border border-zinc-200 px-4 py-3">
+                    <Calendar className="h-5 w-5 shrink-0 text-orange-500" />
+                    <input
+                      id="startDate"
+                      name="startDate"
+                      type="date"
+                      min={new Date().toISOString().slice(0, 10)}
+                      required
+                      className="w-full bg-transparent text-sm outline-none"
+                      aria-label="Rental start date"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3 rounded-2xl border border-zinc-200 px-4 py-3">
+                    <Calendar className="h-5 w-5 shrink-0 text-orange-500" />
+                    <input
+                      id="endDate"
+                      name="endDate"
+                      type="date"
+                      min={new Date().toISOString().slice(0, 10)}
+                      required
+                      className="w-full bg-transparent text-sm outline-none"
+                      aria-label="Rental end date"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-4 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">
+                    Price per day
+                  </span>
+
+                  <b>
+                    ฿
+                    {Number(
+                      device.pricePerDay,
+                    ).toLocaleString()}
+                  </b>
+                </div>
+
+                <div className="flex justify-between">
+                  <span className="text-zinc-500">
+                    Security deposit
+                  </span>
+
+                  <b>
+                    ฿
+                    {Number(
+                      device.depositAmount,
+                    ).toLocaleString()}
+                  </b>
+                </div>
+              </div>
+
+              <label
+                htmlFor="renterNote"
+                className="mt-5 block text-sm font-bold"
+              >
+                Note to owner <span className="font-normal text-zinc-400">(optional)</span>
+              </label>
+              <textarea
+                id="renterNote"
+                name="renterNote"
+                maxLength={1000}
+                rows={3}
+                className="mt-2 w-full resize-y rounded-xl border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-orange-400"
+              />
+
+              <button
+                type="submit"
+                className="mt-5 w-full rounded-2xl bg-gradient-to-r from-yellow-400 to-orange-500 py-4 font-black text-white shadow-lg shadow-orange-100 transition hover:scale-[1.02]"
+              >
+                Request to rent
+              </button>
+            </form>
 
             <p className="mt-4 text-center text-xs text-zinc-400">
-              Rental requests will be implemented in the next phase.
+              The owner will review your request before the booking is confirmed.
             </p>
 
             <div className="mt-7 flex items-center gap-3 rounded-2xl bg-green-50 p-4">

@@ -124,6 +124,7 @@ model Device {
   rentals   Rental[]
   reviews   Review[]
   favorites Favorite[]
+  notifications Notification[]
 
   @@index([ownerId])
   @@index([categoryId])
@@ -169,6 +170,7 @@ model Rental {
   transactions  Transaction[]
   damageReports DamageReport[]
   review        Review?
+  notifications Notification[]
 
   @@index([deviceId])
   @@index([renterId])
@@ -255,14 +257,21 @@ model Favorite {
 model Notification {
   id        String   @id @default(cuid())
   userId    String
+  rentalId  String?
+  deviceId  String?
+  type      String?
   title     String
   message   String
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rental Rental? @relation(fields: [rentalId], references: [id], onDelete: SetNull)
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([rentalId])
+  @@index([deviceId])
 }
 
 model AuditLog {

@@ -137,6 +137,11 @@ async function RentalsContent({
         renter:
           true,
 
+        handovers: {
+          where: { type: "COLLECTION" },
+          select: { status: true },
+        },
+
         device: {
           include: {
             images: {
@@ -408,7 +413,13 @@ async function RentalsContent({
                       {rental.status ===
                         "APPROVED" && (
                         <>
-                          <CollectionQr rentalId={rental.id} />
+                          {rental.handovers.some((handover) => handover.status !== "INITIATED") ? (
+                            <p className="mt-3 text-xs font-semibold text-emerald-700">
+                              Collection QR scanned
+                            </p>
+                          ) : (
+                            <CollectionQr rentalId={rental.id} />
+                          )}
                           <form
                             action={cancelOwnerBooking.bind(
                               null,

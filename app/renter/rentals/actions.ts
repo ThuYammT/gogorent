@@ -3,8 +3,40 @@
 import { revalidatePath } from "next/cache";
 
 import { notifyBookingEvent } from "@/lib/booking-notifications";
+import { HandoverError, verifyHandover } from "@/lib/handover";
 import { prisma } from "@/lib/prisma";
 import { requireRenter } from "@/lib/session";
+
+export async function scanCollectionQr(
+  rentalId: string,
+  token: string,
+): Promise<{ success: true } | { error: string }> {
+  await requireRenter();
+
+  if (typeof rentalId !== "string" || typeof token !== "string") {
+    return { error: "Invalid QR code." };
+  }
+
+  try {
+    await verifyHandover(rentalId, "COLLECTION", token);
+  } catch (error) {
+    if (error instanceof HandoverError) {
+      return { error: error.message };
+    }
+
+    console.error(
+      "Collection QR verification failed:",
+      error instanceof Error ? error.name : "Unknown error",
+    );
+    return { error: "Could not verify the QR code. Please try again." };
+  }
+
+  revalidatePath("/renter/rentals");
+  revalidatePath(`/renter/rentals/${rentalId}`);
+  revalidatePath("/owner/rentals");
+  revalidatePath("/owner/notifications");
+  return { success: true };
+}
 
 export async function cancelRenterBooking(rentalId: string) {
   const renter = await requireRenter();

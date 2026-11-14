@@ -67,6 +67,17 @@ enum DamageStatus {
   DISMISSED
 }
 
+enum HandoverType {
+  COLLECTION
+  RETURN
+}
+
+enum HandoverStatus {
+  INITIATED
+  QR_SCANNED
+  VERIFIED
+}
+
 model User {
   id           String     @id @default(cuid())
   name         String
@@ -88,8 +99,22 @@ model User {
   reviews       Review[]
   favorites     Favorite[]
   notifications Notification[]
+  sessions      Session[]
+  handoverVerificationLimits HandoverVerificationLimit[]
   auditLogs     AuditLog[]
   damageReports DamageReport[]
+}
+
+model Session {
+  tokenHash String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
 
 model Category {
@@ -171,11 +196,44 @@ model Rental {
   damageReports DamageReport[]
   review        Review?
   notifications Notification[]
+  handovers     Handover[]
+  handoverVerificationLimits HandoverVerificationLimit[]
 
   @@index([deviceId])
   @@index([renterId])
   @@index([ownerId])
   @@index([status])
+}
+
+model Handover {
+  id                String         @id @default(cuid())
+  rentalId          String
+  type              HandoverType
+  status            HandoverStatus @default(INITIATED)
+  tokenHash         String         @unique
+  expiresAt         DateTime
+  scannedAt         DateTime?
+  ownerConfirmedAt  DateTime?
+  renterConfirmedAt DateTime?
+  verifiedAt        DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  rental Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  @@unique([rentalId, type])
+}
+
+model HandoverVerificationLimit {
+  rentalId   String
+  userId     String
+  windowStart DateTime
+  attempts   Int
+
+  rental Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([rentalId, userId])
 }
 
 model Transaction {

@@ -24,6 +24,9 @@ Configure the project before starting the development server:
    npx prisma migrate deploy
    ```
 
+   The secure-session migration invalidates existing login cookies; all users
+   must sign in again after deployment.
+
 Then run the development server:
 
 ```bash
@@ -43,6 +46,13 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 When an owner submits a new device, each active administrator receives an
 in-app notification linking to the listing review. Administrators can find
 their notifications and mark them as read in the admin sidebar.
+
+Owners can generate a collection QR for an approved booking on the Rentals
+page. The code expires after five minutes and should only be shown to the
+booking's renter. Keep the page open: if the code is lost, it cannot be
+retrieved and a new one can be generated after it expires. The renter-facing
+scanner and collection confirmation are not implemented yet; generating the
+code does not activate the rental.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

@@ -11,6 +11,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/session";
 import { cancelOwnerBooking } from "@/app/owner/requests/actions";
+import CollectionQr from "@/components/owner/CollectionQr";
 
 type RentalsPageProps = {
   searchParams: Promise<{
@@ -176,7 +177,8 @@ async function RentalsContent({
           </h1>
 
           <p className="mt-2 text-sm text-zinc-500">
-            Track approved, active and historical rentals for your devices.
+            Track approved booking requests, active rentals and rental history.
+            Approved device listings are shown under My Devices.
           </p>
         </div>
       </header>
@@ -228,8 +230,27 @@ async function RentalsContent({
             </h2>
 
             <p className="mt-2 text-sm text-zinc-500">
-              Rentals matching this status will appear here.
+              {selectedStatus === "APPROVED"
+                ? "Approved booking requests appear here. An approved device listing becomes available for renters to request, but is not a booking."
+                : "Rentals matching this status will appear here."}
             </p>
+
+            {selectedStatus === "APPROVED" && (
+              <div className="mt-4 flex flex-wrap justify-center gap-4 text-sm font-semibold">
+                <Link
+                  href="/owner/devices?status=AVAILABLE"
+                  className="text-zinc-700 underline underline-offset-2 hover:text-zinc-950"
+                >
+                  View available devices
+                </Link>
+                <Link
+                  href="/owner/requests"
+                  className="text-zinc-700 underline underline-offset-2 hover:text-zinc-950"
+                >
+                  Review booking requests
+                </Link>
+              </div>
+            )}
           </section>
         ) : (
           <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
@@ -386,20 +407,23 @@ async function RentalsContent({
 
                       {rental.status ===
                         "APPROVED" && (
-                        <form
-                          action={cancelOwnerBooking.bind(
-                            null,
-                            rental.id,
-                          )}
-                          className="mt-2"
-                        >
-                          <button
-                            type="submit"
-                            className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-900"
+                        <>
+                          <CollectionQr rentalId={rental.id} />
+                          <form
+                            action={cancelOwnerBooking.bind(
+                              null,
+                              rental.id,
+                            )}
+                            className="mt-2"
                           >
-                            Cancel booking
-                          </button>
-                        </form>
+                            <button
+                              type="submit"
+                              className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-900"
+                            >
+                              Cancel booking
+                            </button>
+                          </form>
+                        </>
                       )}
                     </div>
                   </div>

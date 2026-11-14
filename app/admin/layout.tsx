@@ -23,6 +23,7 @@ async function AdminShell({
   const [
     pendingListings,
     openDamageReports,
+    unreadNotifications,
   ] =
     await Promise.all([
       prisma.device.count({
@@ -40,6 +41,13 @@ async function AdminShell({
               "UNDER_REVIEW",
             ],
           },
+        },
+      }),
+
+      prisma.notification.count({
+        where: {
+          userId: admin.id,
+          isRead: false,
         },
       }),
     ]);
@@ -61,6 +69,9 @@ async function AdminShell({
         }
         openDamageReports={
           openDamageReports
+        }
+        unreadNotifications={
+          unreadNotifications
         }
       />
 

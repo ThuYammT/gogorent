@@ -90,6 +90,7 @@ model User {
   notifications Notification[]
   auditLogs     AuditLog[]
   damageReports DamageReport[]
+  sessions      Session[]
 }
 
 model Category {
@@ -122,10 +123,11 @@ model Device {
   owner    User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id])
 
-  images    DeviceImage[]
-  rentals   Rental[]
-  reviews   Review[]
-  favorites Favorite[]
+  images        DeviceImage[]
+  rentals       Rental[]
+  reviews       Review[]
+  favorites     Favorite[]
+  notifications Notification[]
 
   @@index([ownerId])
   @@index([categoryId])
@@ -171,6 +173,7 @@ model Rental {
   transactions  Transaction[]
   damageReports DamageReport[]
   review        Review?
+  notifications Notification[]
 
   @@index([deviceId])
   @@index([renterId])
@@ -257,6 +260,7 @@ model Favorite {
 model Notification {
   id        String   @id @default(cuid())
   userId    String
+  rentalId  String?
   deviceId  String?
   type      String?
   title     String
@@ -264,9 +268,13 @@ model Notification {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rental Rental? @relation(fields: [rentalId], references: [id], onDelete: SetNull)
+  device Device? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
 
   @@index([userId])
+  @@index([rentalId])
+  @@index([deviceId])
 }
 
 model AuditLog {
@@ -279,6 +287,17 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+model Session {
+  tokenHash String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }

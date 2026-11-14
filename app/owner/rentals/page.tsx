@@ -10,6 +10,7 @@ import {
 
 import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/session";
+import { cancelOwnerBooking } from "@/app/owner/requests/actions";
 
 type RentalsPageProps = {
   searchParams: Promise<{
@@ -263,6 +264,7 @@ async function RentalsContent({
                     key={
                       rental.id
                     }
+                    id={rental.id}
                     className="grid gap-5 px-6 py-5 lg:grid-cols-[2fr_1.2fr_1.3fr_1fr_.8fr] lg:items-center"
                   >
                     {/* DEVICE */}
@@ -381,6 +383,24 @@ async function RentalsContent({
                           rental.status,
                         )}
                       </span>
+
+                      {rental.status ===
+                        "APPROVED" && (
+                        <form
+                          action={cancelOwnerBooking.bind(
+                            null,
+                            rental.id,
+                          )}
+                          className="mt-2"
+                        >
+                          <button
+                            type="submit"
+                            className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-900"
+                          >
+                            Cancel booking
+                          </button>
+                        </form>
+                      )}
                     </div>
                   </div>
                 ),

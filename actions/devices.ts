@@ -15,6 +15,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/session";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { notifyAdminsOfNewListing } from "@/lib/listing-notifications";
 
 const DEVICE_IMAGE_BUCKET =
   "device-images";
@@ -651,7 +652,26 @@ export async function createDevice(
       files,
       0,
     );
+
+    await prisma.$transaction(async (transaction) => {
+      await notifyAdminsOfNewListing(transaction, device);
+    });
   } catch (error) {
+<<<<<<< HEAD
+=======
+    // Roll back the listing and any uploaded images if submission fails.
+    const images = await prisma.deviceImage.findMany({
+      where: { deviceId: device.id },
+      select: { url: true },
+    });
+
+    const paths = images
+      .map((image) => storagePathFromPublicUrl(image.url))
+      .filter((path): path is string => path !== null);
+
+    await removeStorageFiles(paths);
+
+>>>>>>> 6f9af43d2c699b010d7b689ec792edcd430df05a
     await prisma.device.delete({
       where: {
         id:
@@ -666,6 +686,24 @@ export async function createDevice(
     device.id,
   );
 
+<<<<<<< HEAD
+=======
+  revalidatePath(
+    "/owner/devices",
+  );
+
+  revalidatePath(
+    "/devices",
+  );
+
+  revalidatePath("/admin", "layout");
+  revalidatePath("/admin/listings");
+  revalidatePath("/admin/notifications");
+  revalidatePath("/admin/dashboard");
+
+  revalidatePath("/");
+
+>>>>>>> 6f9af43d2c699b010d7b689ec792edcd430df05a
   redirect(
     `/owner/devices/${device.id}`,
   );

@@ -3,6 +3,7 @@
 import {
   Activity,
   AlertTriangle,
+  Bell,
   ClipboardList,
   LayoutDashboard,
   LogOut,
@@ -28,6 +29,7 @@ type AdminSidebarProps = {
 
   pendingListings: number;
   openDamageReports: number;
+  unreadNotifications: number;
 };
 
 const navigation = [
@@ -60,6 +62,11 @@ const navigation = [
     label: "Damage Reports",
     href: "/admin/damage-reports",
     icon: AlertTriangle,
+  },
+  {
+    label: "Notifications",
+    href: "/admin/notifications",
+    icon: Bell,
   },
   {
     label: "Audit Logs",
@@ -99,6 +106,7 @@ export default function AdminSidebar({
   admin,
   pendingListings = 0,
   openDamageReports = 0,
+  unreadNotifications = 0,
 }: AdminSidebarProps) {
   const pathname =
     usePathname();
@@ -138,6 +146,10 @@ export default function AdminSidebar({
       "/admin/damage-reports"
     ) {
       return openDamageReports;
+    }
+
+    if (href === "/admin/notifications") {
+      return unreadNotifications;
     }
 
     return 0;
@@ -333,6 +345,8 @@ export default function AdminSidebar({
           {(pendingListings >
             0 ||
             openDamageReports >
+              0 ||
+            unreadNotifications >
               0) && (
             <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />
           )}

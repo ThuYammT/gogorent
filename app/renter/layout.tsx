@@ -1,6 +1,10 @@
-import Link from "next/link";
-import { Suspense, type ReactNode } from "react";
+import {
+  Suspense,
+  type ReactNode,
+} from "react";
 
+import RenterSidebar from "@/components/renter/RenterSidebar";
+import { prisma } from "@/lib/prisma";
 import { requireRenter } from "@/lib/session";
 
 async function RenterShell({
@@ -8,41 +12,29 @@ async function RenterShell({
 }: {
   children: ReactNode;
 }) {
-  await requireRenter();
+  const renter = await requireRenter();
+
+  const unreadCount =
+    await prisma.notification.count({
+      where: {
+        userId: renter.id,
+        isRead: false,
+      },
+    });
 
   return (
-    <div className="min-h-screen bg-[#fafafa]">
-      <header className="border-b border-zinc-200 bg-white px-6 py-4">
-        <nav className="mx-auto flex max-w-7xl items-center justify-between gap-4">
-          <Link
-            href="/renter/dashboard"
-            className="text-lg font-black text-zinc-950"
-          >
-            GoGo<span className="text-orange-500">Rent</span>
-          </Link>
-          <div className="flex items-center gap-4 text-sm font-medium text-zinc-600">
-            <Link href="/renter/rentals" className="hover:text-zinc-950">
-              Bookings
-            </Link>
-            <Link
-              href="/renter/notifications"
-              className="hover:text-zinc-950"
-            >
-              Notifications
-            </Link>
-            <Link href="/devices" className="hover:text-zinc-950">
-              Browse devices
-            </Link>
-            <Link href="/renter/favorites" className="hover:text-zinc-950">
-              Saved
-            </Link>
-            <Link href="/renter/profile" className="hover:text-zinc-950">
-              Profile
-            </Link>
-          </div>
-        </nav>
-      </header>
-      {children}
+    <div className="min-h-screen bg-[#f6f7f9]">
+      <RenterSidebar
+        renter={{
+          name: renter.name,
+          email: renter.email,
+        }}
+        unreadCount={unreadCount}
+      />
+
+      <div className="min-h-screen lg:pl-72">
+        {children}
+      </div>
     </div>
   );
 }
@@ -55,12 +47,14 @@ export default function RenterLayout({
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#fafafa] p-6 text-sm text-zinc-500">
+        <div className="min-h-screen bg-[#f6f7f9] p-6 text-sm text-zinc-500">
           Loading renter workspace...
         </div>
       }
     >
-      <RenterShell>{children}</RenterShell>
+      <RenterShell>
+        {children}
+      </RenterShell>
     </Suspense>
   );
 }

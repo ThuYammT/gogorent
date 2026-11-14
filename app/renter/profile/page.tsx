@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { BadgeCheck, CalendarDays, Mail, ShieldCheck } from "lucide-react";
 
+import AvatarUploader from "@/components/renter/AvatarUploader";
 import RenterProfileForm from "@/components/renter/RenterProfileForm";
 import { prisma } from "@/lib/prisma";
 import { requireRenter } from "@/lib/session";
@@ -40,9 +41,10 @@ async function RenterProfileContent() {
         <div className="mt-10 grid gap-6 lg:grid-cols-[300px_1fr]">
           <aside className="space-y-5">
             <section className="rounded-[28px] bg-white p-6 text-center shadow-sm">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-yellow-300 to-orange-400 text-2xl font-black text-zinc-900">
-                {getInitials(renter.name)}
-              </div>
+              <AvatarUploader
+                avatarUrl={renter.avatarUrl}
+                initials={getInitials(renter.name)}
+              />
 
               <h2 className="mt-4 text-lg font-black">{renter.name}</h2>
               <p className="text-sm text-zinc-400">Renter</p>

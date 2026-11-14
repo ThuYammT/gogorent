@@ -6,7 +6,6 @@ import {
   ArrowLeft,
   Calendar,
   CheckCircle2,
-  Heart,
   MapPin,
   ShieldCheck,
   Star,
@@ -18,7 +17,9 @@ import NavbarFallback from "@/components/layout/NavbarFallback";
 
 import { createBookingRequest } from "./actions";
 
+import FavoriteButton from "@/components/devices/FavoriteButton";
 import { prisma } from "@/lib/prisma";
+import { getSession } from "@/lib/session";
 
 type DeviceDetailPageProps = {
   params: Promise<{
@@ -104,6 +105,23 @@ async function DeviceDetail({
   ) {
     notFound();
   }
+
+  const session = await getSession();
+  const viewer =
+    session?.role === "RENTER"
+      ? "renter"
+      : session
+        ? "hidden"
+        : "guest";
+  const isSaved =
+    viewer === "renter" && session
+      ? (await prisma.favorite.count({
+          where: {
+            userId: session.userId,
+            deviceId: device.id,
+          },
+        })) > 0
+      : false;
 
   const reviewCount =
     device.reviews.length;
@@ -256,13 +274,11 @@ async function DeviceDetail({
                 </div>
               </div>
 
-              <button
-                type="button"
-                className="rounded-full bg-white p-4 shadow-sm transition hover:bg-yellow-50"
-                aria-label="Add to favorites"
-              >
-                <Heart />
-              </button>
+              <FavoriteButton
+                deviceId={device.id}
+                initialSaved={isSaved}
+                viewer={viewer}
+              />
             </div>
 
             <div className="mt-8 border-t border-zinc-200 pt-8">

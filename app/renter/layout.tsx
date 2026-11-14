@@ -33,6 +33,12 @@ async function RenterShell({
             <Link href="/devices" className="hover:text-zinc-950">
               Browse devices
             </Link>
+            <Link href="/renter/favorites" className="hover:text-zinc-950">
+              Saved
+            </Link>
+            <Link href="/renter/profile" className="hover:text-zinc-950">
+              Profile
+            </Link>
           </div>
         </nav>
       </header>

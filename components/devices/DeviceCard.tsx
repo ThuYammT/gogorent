@@ -1,9 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
-
-import {
-  MapPin,
-  Star,
-} from "lucide-react";
+import { MapPin, Star } from "lucide-react";
 
 type DeviceCardProps = {
   id: string;
@@ -12,7 +9,7 @@ type DeviceCardProps = {
   price: number;
   location: string;
   rating: number;
-  emoji: string;
+  emoji?: string;
   imageUrl?: string | null;
 };
 
@@ -23,67 +20,57 @@ export default function DeviceCard({
   price,
   location,
   rating,
-  emoji,
+  emoji = "📦",
   imageUrl,
 }: DeviceCardProps) {
   return (
     <Link
       href={`/devices/${id}`}
-      className="group overflow-hidden rounded-[28px] border border-yellow-100 bg-white transition hover:-translate-y-1 hover:border-orange-200 hover:shadow-xl hover:shadow-orange-100/50"
+      className="group overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
     >
-      {/* IMAGE */}
-      <div className="relative aspect-[4/3] overflow-hidden bg-gradient-to-br from-yellow-50 to-orange-100">
+      <div className="relative h-56 w-full overflow-hidden bg-zinc-100">
         {imageUrl ? (
-          <img
+          <Image
             src={imageUrl}
             alt={name}
-            className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+            fill
+            className="object-cover transition duration-500 group-hover:scale-105"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center">
-            <span className="text-[90px]">
-              {emoji}
-            </span>
+          <div className="flex h-full w-full items-center justify-center text-7xl">
+            {emoji}
           </div>
         )}
-
-        <span className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold text-zinc-700 shadow-sm backdrop-blur">
-          {category}
-        </span>
       </div>
 
-      {/* CONTENT */}
       <div className="p-5">
-        <h3 className="truncate text-lg font-black text-zinc-900">
-          {name}
-        </h3>
+        <div className="flex items-center justify-between gap-3">
+          <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-orange-600">
+            {category}
+          </span>
 
-        <div className="mt-2 flex items-center gap-1.5 text-sm text-zinc-400">
-          <MapPin className="h-4 w-4" />
-
-          <span className="truncate">
-            {location}
+          <span className="flex items-center gap-1 text-sm font-semibold text-zinc-600">
+            <Star className="h-4 w-4 fill-current text-amber-400" />
+            {rating > 0 ? rating.toFixed(1) : "New"}
           </span>
         </div>
 
-        <div className="mt-5 flex items-end justify-between">
-          <div>
-            <span className="text-xl font-black text-zinc-900">
-              ฿{price.toLocaleString()}
-            </span>
+        <h3 className="mt-4 text-lg font-black text-zinc-950">
+          {name}
+        </h3>
 
-            <span className="ml-1 text-sm text-zinc-400">
+        <div className="mt-2 flex items-center gap-2 text-sm text-zinc-500">
+          <MapPin className="h-4 w-4" />
+          <span>{location}</span>
+        </div>
+
+        <div className="mt-5">
+          <p className="text-xl font-black text-zinc-950">
+            ฿{price.toLocaleString()}
+            <span className="ml-1 text-sm font-medium text-zinc-400">
               / day
             </span>
-          </div>
-
-          <div className="flex items-center gap-1 text-sm">
-            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-
-            <span className="font-bold text-zinc-700">
-              {rating.toFixed(1)}
-            </span>
-          </div>
+          </p>
         </div>
       </div>
     </Link>

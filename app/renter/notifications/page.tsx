@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { Bell, Check, Clock3 } from "lucide-react";
+import {
+  Bell,
+  Check,
+  CheckCheck,
+  Clock3,
+} from "lucide-react";
 
 import {
   markAllRenterNotificationsRead,
@@ -12,9 +17,13 @@ import { prisma } from "@/lib/prisma";
 import { requireRenter } from "@/lib/session";
 
 async function RenterNotificationsContent() {
-  const renter = await requireRenter();
+  const renter =
+    await requireRenter();
 
-  const [notifications, unreadCount] = await Promise.all([
+  const [
+    notifications,
+    unreadCount,
+  ] = await Promise.all([
     prisma.notification.findMany({
       where: {
         userId: renter.id,
@@ -23,6 +32,7 @@ async function RenterNotificationsContent() {
         createdAt: "desc",
       },
     }),
+
     prisma.notification.count({
       where: {
         userId: renter.id,
@@ -32,105 +42,165 @@ async function RenterNotificationsContent() {
   ]);
 
   return (
-    <main className="min-h-screen bg-[#fafafa] p-6 md:p-10">
-      <div className="mx-auto max-w-4xl">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+    <main className="p-5 md:p-8 lg:p-10">
+      <div className="mx-auto max-w-6xl">
+        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
-            <p className="text-sm font-bold text-orange-500">RENTER WORKSPACE</p>
-            <h1 className="mt-1 text-3xl font-black text-zinc-950">
+            <p className="text-sm font-semibold text-amber-600">
+              Renter workspace
+            </p>
+
+            <h1 className="mt-1 text-3xl font-bold tracking-tight text-zinc-950">
               Notifications
             </h1>
+
             <p className="mt-2 text-sm text-zinc-500">
-              Booking decisions and updates from your rentals.
+              Booking decisions,
+              collection updates and
+              rental activity.
             </p>
           </div>
+
           <Link
             href="/renter/rentals"
-            className="rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700"
+            className="w-fit rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50"
           >
-            Your bookings
+            View bookings
           </Link>
         </div>
 
-        {unreadCount > 0 && (
-          <form action={markAllRenterNotificationsRead} className="mt-5">
-            <button
-              type="submit"
-              className="rounded-lg bg-zinc-950 px-4 py-2 text-sm font-semibold text-white"
-            >
-              Mark all as read
-            </button>
-          </form>
-        )}
+        <div className="mt-8 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-zinc-900">
+              Inbox
+            </p>
 
-        <section className="mt-6 divide-y divide-zinc-100 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-          {notifications.length === 0 ? (
+            <p className="mt-1 text-xs text-zinc-500">
+              {unreadCount === 0
+                ? "You're all caught up."
+                : `${unreadCount} unread notification${
+                    unreadCount === 1
+                      ? ""
+                      : "s"
+                  }`}
+            </p>
+          </div>
+
+          {unreadCount > 0 && (
+            <form
+              action={
+                markAllRenterNotificationsRead
+              }
+            >
+              <button
+                type="submit"
+                className="inline-flex items-center gap-2 rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+              >
+                <CheckCheck className="h-4 w-4" />
+                Mark all read
+              </button>
+            </form>
+          )}
+        </div>
+
+        <section className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+          {notifications.length ===
+          0 ? (
             <div className="px-6 py-16 text-center">
-              <Bell className="mx-auto h-9 w-9 text-zinc-300" />
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100">
+                <Bell className="h-6 w-6 text-zinc-400" />
+              </div>
+
               <h2 className="mt-4 font-semibold text-zinc-900">
                 No notifications yet
               </h2>
-              <p className="mt-2 text-sm text-zinc-500">
-                Updates about your booking requests will appear here.
+
+              <p className="mt-1 text-sm text-zinc-500">
+                Booking and rental
+                updates will appear
+                here.
               </p>
             </div>
           ) : (
-            notifications.map((notification) => (
-              <article
-                key={notification.id}
-                className={`flex gap-4 p-5 ${
-                  notification.isRead ? "bg-white" : "bg-amber-50/40"
-                }`}
-              >
-                <div className="pt-1.5">
-                  <span
-                    className={`block h-2.5 w-2.5 rounded-full ${
-                      notification.isRead ? "bg-zinc-200" : "bg-amber-500"
+            <div className="divide-y divide-zinc-100">
+              {notifications.map(
+                (notification) => (
+                  <article
+                    key={
+                      notification.id
+                    }
+                    className={`flex gap-4 p-5 ${
+                      notification.isRead
+                        ? "bg-white"
+                        : "bg-amber-50/50"
                     }`}
-                  />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-start justify-between gap-2">
-                    {notification.rentalId ? (
-                      <Link
-                        href={`/renter/rentals/${notification.rentalId}`}
-                        className="text-sm font-semibold text-zinc-900 hover:underline"
-                      >
-                        {notification.title}
-                      </Link>
-                    ) : (
-                      <h2 className="text-sm font-semibold text-zinc-900">
-                        {notification.title}
-                      </h2>
-                    )}
-                    <span className="flex items-center gap-1.5 text-xs text-zinc-400">
-                      <Clock3 className="h-3.5 w-3.5" />
-                      {notification.createdAt.toLocaleString()}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-sm leading-6 text-zinc-500">
-                    {notification.message}
-                  </p>
-                  {!notification.isRead && (
-                    <form
-                      action={markRenterNotificationRead.bind(
-                        null,
-                        notification.id,
+                  >
+                    <div className="pt-1">
+                      <span
+                        className={`block h-2.5 w-2.5 rounded-full ${
+                          notification.isRead
+                            ? "bg-zinc-200"
+                            : "bg-amber-500"
+                        }`}
+                      />
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
+                        <div>
+                          {notification.rentalId ? (
+                            <Link
+                              href={`/renter/rentals/${notification.rentalId}`}
+                              className="text-sm font-semibold text-zinc-900 hover:text-amber-700"
+                            >
+                              {
+                                notification.title
+                              }
+                            </Link>
+                          ) : (
+                            <h2 className="text-sm font-semibold text-zinc-900">
+                              {
+                                notification.title
+                              }
+                            </h2>
+                          )}
+
+                          <p className="mt-1 text-sm leading-6 text-zinc-600">
+                            {
+                              notification.message
+                            }
+                          </p>
+                        </div>
+
+                        <span className="flex shrink-0 items-center gap-1.5 text-xs text-zinc-400">
+                          <Clock3 className="h-3.5 w-3.5" />
+
+                          {notification.createdAt.toLocaleString()}
+                        </span>
+                      </div>
+
+                      {!notification.isRead && (
+                        <form
+                          action={markRenterNotificationRead.bind(
+                            null,
+                            notification.id,
+                          )}
+                          className="mt-3"
+                        >
+                          <button
+                            type="submit"
+                            className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-950"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            Mark as read
+                          </button>
+                        </form>
                       )}
-                      className="mt-3"
-                    >
-                      <button
-                        type="submit"
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-zinc-600 hover:text-zinc-950"
-                      >
-                        <Check className="h-3.5 w-3.5" />
-                        Mark as read
-                      </button>
-                    </form>
-                  )}
-                </div>
-              </article>
-            ))
+                    </div>
+                  </article>
+                ),
+              )}
+            </div>
           )}
         </section>
       </div>
@@ -141,7 +211,11 @@ async function RenterNotificationsContent() {
 export default function RenterNotificationsPage() {
   return (
     <Suspense
-      fallback={<div className="p-6 text-sm text-zinc-500">Loading notifications...</div>}
+      fallback={
+        <div className="p-6 text-sm text-zinc-500">
+          Loading notifications...
+        </div>
+      }
     >
       <RenterNotificationsContent />
     </Suspense>

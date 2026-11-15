@@ -1,144 +1,301 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import {
+  revalidatePath,
+} from "next/cache";
 
-import { notifyBookingEvent } from "@/lib/booking-notifications";
-import { prisma } from "@/lib/prisma";
-import { requireRenter } from "@/lib/session";
+import {
+  redirect,
+} from "next/navigation";
 
-const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000;
+import {
+  notifyBookingEvent,
+} from "@/lib/booking-notifications";
 
-function parseRentalDate(value: FormDataEntryValue | null) {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    throw new Error("Please choose valid rental dates.");
+import {
+  prisma,
+} from "@/lib/prisma";
+
+import {
+  requireRenter,
+} from "@/lib/session";
+
+export type RentalRequestState = {
+  error?: string;
+};
+
+function readDate(
+  value: FormDataEntryValue | null,
+) {
+  const text =
+    String(
+      value ?? "",
+    ).trim();
+
+  if (!text) {
+    return null;
   }
 
-  const date = new Date(`${value}T00:00:00.000Z`);
+  const date =
+    new Date(
+      `${text}T00:00:00`,
+    );
 
   if (
-    Number.isNaN(date.getTime()) ||
-    date.toISOString().slice(0, 10) !== value
+    Number.isNaN(
+      date.getTime(),
+    )
   ) {
-    throw new Error("Please choose valid rental dates.");
+    return null;
   }
 
   return date;
 }
 
-export async function createBookingRequest(
+export async function createRentalRequest(
   deviceId: string,
+  _previousState: RentalRequestState,
   formData: FormData,
-) {
-  const renter = await requireRenter();
-  const startDate = parseRentalDate(formData.get("startDate"));
-  const endDate = parseRentalDate(formData.get("endDate"));
-  const today = new Date();
-  today.setUTCHours(0, 0, 0, 0);
+): Promise<RentalRequestState> {
+  /*
+   * CRITICAL:
+   * Only RENTER accounts can reach
+   * the rental creation logic.
+   */
+  const renter =
+    await requireRenter();
 
-  if (startDate < today || endDate <= startDate) {
-    throw new Error("Choose a start date today or later and an end date after it.");
-  }
-
-  const totalDays = Math.ceil(
-    (endDate.getTime() - startDate.getTime()) / DAY_IN_MILLISECONDS,
-  );
-  const renterNoteEntry = formData.get("renterNote");
-
-  if (
-    renterNoteEntry !== null &&
-    typeof renterNoteEntry !== "string"
-  ) {
-    throw new Error("Please provide a valid note.");
-  }
-
-  const renterNote = (renterNoteEntry ?? "").trim();
-
-  if (renterNote.length > 1000) {
-    throw new Error("The note must be 1,000 characters or fewer.");
-  }
-
-  const rental = await prisma.$transaction(async (transaction) => {
-    const device = await transaction.device.findUnique({
-      where: {
-        id: deviceId,
-      },
-      select: {
-        id: true,
-        ownerId: true,
-        name: true,
-        pricePerDay: true,
-        depositAmount: true,
-        status: true,
-      },
-    });
-
-    if (!device || device.status !== "AVAILABLE") {
-      throw new Error("This device is no longer available.");
-    }
-
-    if (device.ownerId === renter.id) {
-      throw new Error("You cannot request to rent your own device.");
-    }
-
-    const conflictingRental = await transaction.rental.findFirst({
-      where: {
-        deviceId: device.id,
-        status: {
-          in: ["REQUESTED", "APPROVED", "ACTIVE"],
-        },
-        startDate: {
-          lt: endDate,
-        },
-        endDate: {
-          gt: startDate,
-        },
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    if (conflictingRental) {
-      throw new Error("This device is already requested for those dates.");
-    }
-
-    const rentalAmount = Number(device.pricePerDay) * totalDays;
-    const depositAmount = Number(device.depositAmount);
-
-    const createdRental = await transaction.rental.create({
-      data: {
-        deviceId: device.id,
-        renterId: renter.id,
-        ownerId: device.ownerId,
-        startDate,
-        endDate,
-        totalDays,
-        pricePerDay: device.pricePerDay,
-        rentalAmount,
-        depositAmount: device.depositAmount,
-        totalAmount: rentalAmount + depositAmount,
-        renterNote: renterNote || null,
-      },
-      select: {
-        id: true,
-      },
-    });
-
-    await notifyBookingEvent(
-      transaction,
-      device.ownerId,
-      "REQUESTED",
-      createdRental.id,
+  const startDate =
+    readDate(
+      formData.get(
+        "startDate",
+      ),
     );
 
-    return createdRental;
-  });
+  const endDate =
+    readDate(
+      formData.get(
+        "endDate",
+      ),
+    );
 
-  revalidatePath("/owner/requests");
-  revalidatePath("/owner/notifications");
-  revalidatePath("/owner/dashboard");
-  revalidatePath("/renter/rentals");
-  revalidatePath("/renter/notifications");
-  redirect(`/renter/rentals?created=${rental.id}`);
+  const renterNote =
+    String(
+      formData.get(
+        "renterNote",
+      ) ?? "",
+    )
+      .trim()
+      .slice(0, 500);
+
+  if (
+    !startDate ||
+    !endDate
+  ) {
+    return {
+      error:
+        "Please choose your rental dates.",
+    };
+  }
+
+  const today =
+    new Date();
+
+  today.setHours(
+    0,
+    0,
+    0,
+    0,
+  );
+
+  if (
+    startDate < today
+  ) {
+    return {
+      error:
+        "The rental start date cannot be in the past.",
+    };
+  }
+
+  if (
+    endDate <
+    startDate
+  ) {
+    return {
+      error:
+        "The end date must be on or after the start date.",
+    };
+  }
+
+  const totalDays =
+    Math.floor(
+      (endDate.getTime() -
+        startDate.getTime()) /
+        86400000,
+    ) + 1;
+
+  if (
+    totalDays < 1
+  ) {
+    return {
+      error:
+        "Invalid rental period.",
+    };
+  }
+
+  const rental =
+    await prisma.$transaction(
+      async (
+        transaction,
+      ) => {
+        const device =
+          await transaction.device.findFirst(
+            {
+              where: {
+                id:
+                  deviceId,
+
+                status:
+                  "AVAILABLE",
+              },
+
+              select: {
+                id: true,
+                ownerId:
+                  true,
+                pricePerDay:
+                  true,
+                depositAmount:
+                  true,
+              },
+            },
+          );
+
+        if (!device) {
+          throw new Error(
+            "This device is no longer available.",
+          );
+        }
+
+        /*
+         * Protect against duplicate
+         * requests from the same renter.
+         */
+        const existing =
+          await transaction.rental.findFirst(
+            {
+              where: {
+                deviceId:
+                  device.id,
+
+                renterId:
+                  renter.id,
+
+                status: {
+                  in: [
+                    "REQUESTED",
+                    "APPROVED",
+                    "ACTIVE",
+                  ],
+                },
+              },
+
+              select: {
+                id: true,
+              },
+            },
+          );
+
+        if (
+          existing
+        ) {
+          throw new Error(
+            "You already have an active or pending booking for this device.",
+          );
+        }
+
+        const pricePerDay =
+          Number(
+            device.pricePerDay,
+          );
+
+        const depositAmount =
+          Number(
+            device.depositAmount,
+          );
+
+        const rentalAmount =
+          pricePerDay *
+          totalDays;
+
+        const totalAmount =
+          rentalAmount +
+          depositAmount;
+
+        const created =
+          await transaction.rental.create(
+            {
+              data: {
+                deviceId:
+                  device.id,
+
+                renterId:
+                  renter.id,
+
+                ownerId:
+                  device.ownerId,
+
+                startDate,
+                endDate,
+
+                totalDays,
+
+                pricePerDay,
+
+                rentalAmount,
+
+                depositAmount,
+
+                totalAmount,
+
+                status:
+                  "REQUESTED",
+
+                renterNote:
+                  renterNote ||
+                  null,
+              },
+            },
+          );
+
+        await notifyBookingEvent(
+          transaction,
+          device.ownerId,
+          "REQUESTED",
+          created.id,
+        );
+
+        return created;
+      },
+    );
+
+  revalidatePath(
+    "/renter/rentals",
+  );
+
+  revalidatePath(
+    "/renter/dashboard",
+  );
+
+  revalidatePath(
+    "/owner/requests",
+  );
+
+  revalidatePath(
+    "/owner/notifications",
+  );
+
+  redirect(
+    `/renter/rentals?created=${rental.id}`,
+  );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { QrCode } from "lucide-react";
+import { Download, QrCode } from "lucide-react";
 
 import { generateCollectionQr } from "@/app/owner/rentals/actions";
 
@@ -81,8 +81,23 @@ export default function CollectionQr({ rentalId }: CollectionQrProps) {
             Expires in {Math.floor(remainingSeconds / 60)}:
             {String(remainingSeconds % 60).padStart(2, "0")}
           </p>
+          <a
+            href={qr.image}
+            download={`collection-qr-${rentalId.slice(-6)}.png`}
+            onClick={(event) => {
+              if (Date.now() >= new Date(qr.expiresAt).getTime()) {
+                event.preventDefault();
+                setQr(null);
+                setError("The QR code has expired. Please generate a new one.");
+              }
+            }}
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
+          >
+            <Download className="h-4 w-4" />
+            Download QR photo
+          </a>
           <p className="mt-1 max-w-48 text-xs text-zinc-500">
-            Show this code to your renter. Keep this page open until they scan it.
+            Share only with your renter. The saved code also expires after five minutes.
           </p>
         </div>
       ) : (

@@ -17,6 +17,7 @@ import {
 } from "../actions";
 
 import CollectionQrScanner from "@/components/renter/CollectionQrScanner";
+import CollectionConfirmation from "@/components/renter/CollectionConfirmation";
 import { prisma } from "@/lib/prisma";
 import { requireRenter } from "@/lib/session";
 
@@ -71,6 +72,7 @@ async function RenterBookingContent({
             name: true,
             emoji: true,
             location: true,
+            condition: true,
           },
         },
 
@@ -81,6 +83,15 @@ async function RenterBookingContent({
           select: {
             status: true,
           },
+        },
+        transactions: {
+          where: {
+            type: "RENTAL_PAYMENT",
+            status: "PENDING",
+          },
+          select: { amount: true },
+          orderBy: { createdAt: "desc" },
+          take: 1,
         },
       },
     });
@@ -260,14 +271,14 @@ async function RenterBookingContent({
             <div className="border-t border-zinc-100 px-6 py-6 md:px-7">
               
 
-              {rental.handovers.some(
-                (handover) =>
-                  handover.status !==
-                  "INITIATED",
-              ) ? (
+              {rental.handovers.some((handover) => handover.status === "QR_SCANNED") ? (
+                <CollectionConfirmation
+                  rentalId={rental.id}
+                  condition={rental.device.condition}
+                />
+              ) : rental.handovers.some((handover) => handover.status === "VERIFIED") ? (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-700">
-                  Collection QR has
-                  already been scanned.
+                  Collection has already been confirmed.
                 </div>
               ) : (
                 <CollectionQrScanner
@@ -276,6 +287,19 @@ async function RenterBookingContent({
                   }
                 />
               )}
+            </div>
+          )}
+
+          {rental.status === "ACTIVE" && rental.transactions[0] && (
+            <div className="border-t border-zinc-100 px-6 py-6 md:px-7">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                <p className="font-semibold">
+                  Payment pending: ฿{Number(rental.transactions[0].amount).toLocaleString()}
+                </p>
+                <p className="mt-1">
+                  This includes the rental and security deposit. Online payment is not available yet; no payment has been charged.
+                </p>
+              </div>
             </div>
           )}
 

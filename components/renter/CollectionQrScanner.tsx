@@ -1,29 +1,9 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useId,
-  useRef,
-  useState,
-} from "react";
-
-import type {
-  Html5Qrcode,
-} from "html5-qrcode";
-
-import {
-  Camera,
-  CheckCircle2,
-  Loader2,
-  ScanLine,
-  Square,
-  TriangleAlert,
-} from "lucide-react";
-
-import {
-  useRouter,
-} from "next/navigation";
+import { useCallback, useEffect, useId, useRef, useState, type ChangeEvent } from "react";
+import type { Html5Qrcode } from "html5-qrcode";
+import { Camera, CheckCircle2, ImageUp, Loader2, ScanLine, Square, TriangleAlert } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import {
   scanCollectionQr,
@@ -33,6 +13,7 @@ type Phase =
   | "idle"
   | "starting"
   | "scanning"
+  | "reading"
   | "verifying"
   | "success"
   | "blocked";
@@ -83,6 +64,9 @@ export default function CollectionQrScanner({
     );
 
   const opening =
+    useRef(false);
+
+  const reading =
     useRef(false);
 
   const handled =
@@ -265,11 +249,7 @@ export default function CollectionQrScanner({
   }
 
   async function startCamera() {
-    if (
-      opening.current ||
-      scanner.current ||
-      stopping.current
-    ) {
+    if (opening.current || reading.current || scanner.current || stopping.current) {
       return;
     }
 
@@ -399,6 +379,83 @@ export default function CollectionQrScanner({
     }
   }
 
+  async function scanPhoto(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = "";
+    if (!file) {
+      return;
+    }
+    if (reading.current || opening.current || scanner.current || stopping.current) {
+      setError("Stop the camera before choosing a photo.");
+      return;
+    }
+
+    reading.current = true;
+    handled.current = false;
+    setError("");
+    setPhase("reading");
+
+    let decoder: typeof import("html5-qrcode");
+    try {
+      decoder = await import("html5-qrcode");
+    } catch (error) {
+      console.error("Could not load collection QR scanner:", error instanceof Error ? error.name : "Unknown error");
+      reading.current = false;
+      if (mounted.current) {
+        setError("Could not load the QR scanner. Please try again.");
+        setPhase("idle");
+      }
+      return;
+    }
+    if (!mounted.current) {
+      reading.current = false;
+      return;
+    }
+
+    const container = document.createElement("div");
+    container.id = `${readerId}-photo`;
+    container.hidden = true;
+    document.body.appendChild(container);
+    let photoScanner: Html5Qrcode | undefined;
+    let token: string;
+    try {
+      try {
+        photoScanner = new decoder.Html5Qrcode(container.id, {
+          formatsToSupport: [decoder.Html5QrcodeSupportedFormats.QR_CODE],
+          verbose: false,
+        });
+      } catch (error) {
+        console.error("Could not start collection QR photo scanner:", error instanceof Error ? error.name : "Unknown error");
+        if (mounted.current) {
+          setError("Could not start the QR scanner. Please try again.");
+          setPhase("idle");
+        }
+        return;
+      }
+      try {
+        token = await photoScanner.scanFile(file, false);
+      } catch {
+        if (mounted.current) {
+          setError("Could not read a QR code from that photo. Choose a clear image and try again.");
+          setPhase("idle");
+        }
+        return;
+      }
+    } finally {
+      try {
+        photoScanner?.clear();
+      } catch (error) {
+        console.error("Could not clear collection QR photo scanner:", error instanceof Error ? error.name : "Unknown error");
+      }
+      container.remove();
+      reading.current = false;
+    }
+
+    if (mounted.current) {
+      await handleScan(token);
+    }
+  }
+
   async function cancelScan() {
     handled.current =
       true;
@@ -445,17 +502,12 @@ export default function CollectionQrScanner({
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white shadow-sm ring-1 ring-zinc-200">
           <ScanLine className="h-5 w-5 text-amber-600" />
         </div>
-
         <div>
           <h3 className="text-sm font-semibold text-zinc-900">
             Scan collection QR
           </h3>
-
           <p className="mt-1 max-w-xl text-sm leading-6 text-zinc-500">
-            Ask the owner to
-            display the collection
-            QR code, then scan it
-            with your device camera.
+            At collection, scan the owner&apos;s QR code with your camera or choose a photo of it.
           </p>
         </div>
       </div>
@@ -463,48 +515,51 @@ export default function CollectionQrScanner({
       <div
         id={readerId}
         className={`mt-5 max-w-md overflow-hidden rounded-xl bg-zinc-950 ${
-          phase === "idle"
-            ? "hidden"
-            : ""
+          phase === "idle" ? "hidden" : ""
         }`}
       />
 
-      {phase ===
-        "idle" && (
-        <button
-          type="button"
-          onClick={
-            startCamera
-          }
-          className="mt-5 inline-flex items-center gap-2 rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800"
-        >
-          <Camera className="h-4 w-4" />
-          Open camera
-        </button>
-      )}
-
-      {phase ===
-        "starting" && (
-        <div className="mt-5 flex items-center gap-2 text-sm text-zinc-500">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Opening or closing
-          camera...
+      {phase === "idle" && (
+        <div className="mt-5 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={startCamera}
+            className="inline-flex items-center gap-2 rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800"
+          >
+            <Camera className="h-4 w-4" />
+            Open camera
+          </button>
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-zinc-950">
+            <ImageUp className="h-4 w-4" />
+            Upload QR photo
+            <input type="file" accept="image/*" onChange={scanPhoto} className="sr-only" />
+          </label>
         </div>
       )}
 
-      {phase ===
-        "scanning" && (
+      {phase === "starting" && (
+        <div className="mt-5 flex items-center gap-2 text-sm text-zinc-500">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Opening or closing camera...
+        </div>
+      )}
+
+      {phase === "reading" && (
+        <div className="mt-5 flex items-center gap-2 text-sm text-zinc-500">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Reading QR photo...
+        </div>
+      )}
+
+      {phase === "scanning" && (
         <div className="mt-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2 text-sm font-medium text-amber-700">
             <span className="h-2 w-2 animate-pulse rounded-full bg-amber-500" />
             Camera is scanning
           </div>
-
           <button
             type="button"
-            onClick={
-              cancelScan
-            }
+            onClick={cancelScan}
             className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-600 transition hover:bg-zinc-50"
           >
             <Square className="h-3.5 w-3.5" />
@@ -513,47 +568,29 @@ export default function CollectionQrScanner({
         </div>
       )}
 
-      {phase ===
-        "verifying" && (
+      {phase === "verifying" && (
         <div className="mt-5 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Verifying collection
-          QR...
+          Verifying collection QR...
         </div>
       )}
 
-      {phase ===
-        "success" && (
-        <div
-          role="status"
-          className="mt-5 flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3"
-        >
+      {phase === "success" && (
+        <div role="status" className="mt-5 flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
           <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-600" />
-
           <div>
-            <p className="text-sm font-semibold text-emerald-800">
-              QR verified
-            </p>
-
+            <p className="text-sm font-semibold text-emerald-800">QR verified</p>
             <p className="mt-1 text-sm text-emerald-700">
-              The collection QR
-              was scanned
-              successfully.
+              The collection QR was scanned successfully. Continue to confirm the device condition and receipt.
             </p>
           </div>
         </div>
       )}
 
       {error && (
-        <div
-          role="alert"
-          className="mt-5 flex gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3"
-        >
+        <div role="alert" className="mt-5 flex gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
           <TriangleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
-
-          <p className="text-sm leading-6 text-red-700">
-            {error}
-          </p>
+          <p className="text-sm leading-6 text-red-700">{error}</p>
         </div>
       )}
     </div>

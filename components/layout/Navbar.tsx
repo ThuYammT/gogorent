@@ -1,153 +1,169 @@
 import Link from "next/link";
+import { Suspense } from "react";
 
 import {
+  Bell,
   Heart,
   LayoutDashboard,
   LogOut,
-  Menu,
+  Search,
+  ShoppingBag,
+  UserRound,
 } from "lucide-react";
 
 import { logoutAction } from "@/app/login/actions";
 import { getSession } from "@/lib/session";
 
-import Logo from "./Logo";
-
-function dashboardForRole(
-  role: "RENTER" | "OWNER" | "ADMIN",
-) {
-  switch (role) {
-    case "OWNER":
-      return "/owner/dashboard";
-
-    case "ADMIN":
-      return "/admin/dashboard";
-
-    case "RENTER":
-    default:
-      return "/renter/dashboard";
-  }
+function NavbarFallback() {
+  return (
+    <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/95 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 lg:px-6">
+        <Link
+          href="/"
+          className="text-xl font-extrabold tracking-tight text-zinc-950"
+        >
+          GoGo<span className="text-amber-500">Rent</span>
+        </Link>
+      </div>
+    </header>
+  );
 }
 
-function dashboardLabel(
-  role: "RENTER" | "OWNER" | "ADMIN",
-) {
-  switch (role) {
-    case "OWNER":
-      return "Owner Dashboard";
+async function NavbarContent() {
+  const session = await getSession();
 
-    case "ADMIN":
-      return "Admin Dashboard";
-
-    case "RENTER":
-    default:
-      return "My Dashboard";
-  }
-}
-
-export default async function Navbar() {
-  const session =
-    await getSession();
+  const dashboardHref =
+    session?.role === "ADMIN"
+      ? "/admin/dashboard"
+      : session?.role === "OWNER"
+        ? "/owner/dashboard"
+        : "/renter/dashboard";
 
   return (
-    <header className="sticky top-0 z-50 border-b border-yellow-100 bg-white/85 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-        <Logo />
+    <header className="sticky top-0 z-50 border-b border-zinc-200 bg-white/95 backdrop-blur-xl">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-6 px-5 lg:px-6">
+        <Link
+          href="/"
+          className="shrink-0 text-xl font-extrabold tracking-tight text-zinc-950"
+        >
+          GoGo<span className="text-amber-500">Rent</span>
+        </Link>
 
-        {/* DESKTOP NAVIGATION */}
-        <nav className="hidden items-center gap-8 md:flex">
+        <nav className="hidden items-center gap-7 md:flex">
           <Link
             href="/"
-            className="text-sm font-semibold text-zinc-600 transition hover:text-orange-500"
+            className="text-sm font-medium text-zinc-600 transition hover:text-zinc-950"
           >
             Home
           </Link>
 
           <Link
             href="/devices"
-            className="text-sm font-semibold text-zinc-600 transition hover:text-orange-500"
+            className="text-sm font-medium text-zinc-600 transition hover:text-zinc-950"
           >
-            Explore
+            Browse
           </Link>
 
           <Link
             href="/#how-it-works"
-            className="text-sm font-semibold text-zinc-600 transition hover:text-orange-500"
+            className="text-sm font-medium text-zinc-600 transition hover:text-zinc-950"
           >
             How it works
           </Link>
         </nav>
 
-        {/* DESKTOP ACCOUNT AREA */}
-        <div className="hidden items-center gap-3 md:flex">
-          {session ? (
-            <>
-              {session.role ===
-                "RENTER" && (
-                <Link
-                  href="/renter/favorites"
-                  aria-label="Favorites"
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-yellow-50 transition hover:bg-yellow-100"
-                >
-                  <Heart className="h-5 w-5" />
-                </Link>
-              )}
-
-              <Link
-                href={dashboardForRole(
-                  session.role,
-                )}
-                className="inline-flex items-center gap-2 rounded-full px-5 py-2.5 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100"
-              >
-                <LayoutDashboard className="h-4 w-4" />
-
-                {dashboardLabel(
-                  session.role,
-                )}
-              </Link>
-
-              <form
-                action={
-                  logoutAction
-                }
-              >
-                <button
-                  type="submit"
-                  className="inline-flex items-center gap-2 rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-orange-500"
-                >
-                  <LogOut className="h-4 w-4" />
-
-                  Log out
-                </button>
-              </form>
-            </>
-          ) : (
+        <div className="flex items-center gap-2">
+          {!session ? (
             <>
               <Link
                 href="/login"
-                className="rounded-full px-5 py-2.5 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100"
+                className="hidden rounded-xl px-4 py-2.5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-100 sm:inline-flex"
               >
                 Log in
               </Link>
 
               <Link
                 href="/register"
-                className="rounded-full bg-zinc-900 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-orange-500"
+                className="rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800"
               >
-                Get started
+                Create account
+              </Link>
+            </>
+          ) : session.role === "RENTER" ? (
+            <>
+              <Link
+                href="/renter/favorites"
+                className="hidden rounded-xl p-2.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 sm:inline-flex"
+                aria-label="Saved devices"
+              >
+                <Heart className="h-5 w-5" />
+              </Link>
+
+              <Link
+                href="/renter/notifications"
+                className="hidden rounded-xl p-2.5 text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-950 sm:inline-flex"
+                aria-label="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+              </Link>
+
+              <Link
+                href="/renter/rentals"
+                className="hidden items-center gap-2 rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 md:inline-flex"
+              >
+                <ShoppingBag className="h-4 w-4" />
+                My bookings
+              </Link>
+
+              <Link
+                href="/renter/dashboard"
+                className="inline-flex items-center gap-2 rounded-xl bg-zinc-950 px-3.5 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800"
+              >
+                <UserRound className="h-4 w-4" />
+                Account
+              </Link>
+
+              <form action={logoutAction}>
+                <button
+                  type="submit"
+                  className="hidden rounded-xl p-2.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-red-600 lg:inline-flex"
+                  aria-label="Log out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/devices"
+                className="hidden items-center gap-2 rounded-xl border border-zinc-200 px-3.5 py-2.5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 sm:inline-flex"
+              >
+                <Search className="h-4 w-4" />
+                Marketplace
+              </Link>
+
+              <Link
+                href={dashboardHref}
+                className="inline-flex items-center gap-2 rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800"
+              >
+                <LayoutDashboard className="h-4 w-4" />
+                {session.role === "ADMIN"
+                  ? "Admin panel"
+                  : "Owner panel"}
               </Link>
             </>
           )}
         </div>
-
-        {/* MOBILE */}
-        <button
-          type="button"
-          aria-label="Open menu"
-          className="flex h-10 w-10 items-center justify-center rounded-lg transition hover:bg-zinc-100 md:hidden"
-        >
-          <Menu />
-        </button>
       </div>
     </header>
+  );
+}
+
+export default function Navbar() {
+  return (
+    <Suspense fallback={<NavbarFallback />}>
+      <NavbarContent />
+    </Suspense>
   );
 }

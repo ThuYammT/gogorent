@@ -581,7 +581,7 @@ export default function CollectionQrScanner({
           <div>
             <p className="text-sm font-semibold text-emerald-800">QR verified</p>
             <p className="mt-1 text-sm text-emerald-700">
-              The collection QR was scanned successfully. Collection confirmation is not yet available.
+              The collection QR was scanned successfully. Continue to confirm the device condition and receipt.
             </p>
           </div>
         </div>

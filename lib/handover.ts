@@ -176,8 +176,92 @@ export async function verifyHandover(
         type: `${type}_QR_SCANNED`,
         title: type === "COLLECTION" ? "Collection QR scanned" : "Return QR scanned",
         message: type === "COLLECTION"
-          ? "The renter has scanned your Collection QR code. Collection confirmation is not yet available."
+          ? "The renter has scanned your Collection QR code and can now confirm receipt and condition."
           : "The owner has successfully scanned your Return QR code. Please complete the return confirmation.",
+      },
+    });
+  });
+}
+
+export async function confirmCollection(rentalId: string, listedCondition: string) {
+  const actor = await getSession();
+  if (!actor || actor.role !== "RENTER") {
+    throw new HandoverError("You are not authorized to confirm this collection.");
+  }
+
+  await prisma.$transaction(async (transaction) => {
+    const rental = await lockRental(transaction, rentalId);
+    if (rental.renterId !== actor.userId) {
+      throw new HandoverError("You are not authorized to confirm this collection.");
+    }
+    if (rental.status !== "APPROVED") {
+      throw new HandoverError("This booking is not awaiting collection confirmation.");
+    }
+
+    const handover = await transaction.handover.findUnique({
+      where: { rentalId_type: { rentalId, type: "COLLECTION" } },
+      select: { id: true, status: true, scannedAt: true },
+    });
+    if (!handover || handover.status !== "QR_SCANNED" || !handover.scannedAt) {
+      throw new HandoverError("Scan the collection QR code before confirming receipt.");
+    }
+    const existingPayment = await transaction.transaction.findFirst({
+      where: { rentalId, type: "RENTAL_PAYMENT" },
+      select: { id: true },
+    });
+    if (existingPayment) {
+      throw new HandoverError("A payment record already exists for this booking. Contact support.");
+    }
+
+    await transaction.$queryRaw`SELECT "id" FROM "Device" WHERE "id" = ${rental.deviceId} FOR UPDATE`;
+    const device = await transaction.device.findUnique({
+      where: { id: rental.deviceId },
+      select: { ownerId: true, condition: true, status: true },
+    });
+    if (!device || device.ownerId !== rental.ownerId || device.status !== "UNAVAILABLE") {
+      throw new HandoverError("This device is not available for collection. Contact the owner.");
+    }
+    if (device.condition !== listedCondition) {
+      throw new HandoverError("The listed device condition changed. Refresh the booking and inspect it again.");
+    }
+
+    const now = new Date();
+    await transaction.handover.update({
+      where: { id: handover.id },
+      data: { status: "VERIFIED", renterConfirmedAt: now, verifiedAt: now },
+    });
+    await transaction.rental.update({
+      where: { id: rentalId },
+      data: { status: "ACTIVE", pickedUpAt: now },
+    });
+    await transaction.device.update({
+      where: { id: rental.deviceId },
+      data: { status: "RENTED" },
+    });
+    await transaction.transaction.create({
+      data: {
+        rentalId,
+        type: "RENTAL_PAYMENT",
+        amount: rental.totalAmount,
+        status: "PENDING",
+      },
+    });
+    await transaction.auditLog.create({
+      data: {
+        userId: actor.userId,
+        action: "COLLECTION_CONFIRMED",
+        entity: "Handover",
+        entityId: handover.id,
+        details: JSON.stringify({ condition: device.condition, received: true }),
+      },
+    });
+    await transaction.notification.create({
+      data: {
+        userId: rental.ownerId,
+        rentalId,
+        type: "COLLECTION_CONFIRMED",
+        title: "Device collection confirmed",
+        message: "The renter confirmed receipt and the listed device condition. The rental is active and payment is pending.",
       },
     });
   });

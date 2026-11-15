@@ -8,6 +8,14 @@ The owner and renter meet in person, scan a booking-specific QR code, inspect th
 
 **Core principle:** QR verification confirms participation in the exchange. It does not, by itself, prove the device's physical condition or establish who caused damage.
 
+**Current implementation:** After the collection QR is scanned, the renter
+confirms receipt and that the device matches its listed condition. That
+confirmation activates the rental and creates one pending rental payment
+record for the rental amount plus deposit. No payment is charged. Owner
+confirmation, collection photos, fault reporting, payment processing, and the
+return workflow described below are not yet implemented or required for this
+collection confirmation.
+
 ## 2. Device Collection (Owner → Renter)
 
 ### Scenario flow
@@ -20,20 +28,17 @@ The owner and renter meet in person, scan a booking-specific QR code, inspect th
 | 4 | Renter | Scans the QR code displayed on the owner's phone. |
 | 5 | Platform | Validates the token, booking reference, token expiry and whether it has already been used. |
 | 6 | Both | Inspect the device and accessories in person. |
-| 7 | Owner | Uploads initial device-condition photos. |
-| 8 | Renter | Confirms the device condition and selects **Received Device**. |
-| 9 | Owner | Selects **Confirm Handover**. |
-| 10 | Platform | Records both confirmations and, if all required checks pass, changes the booking status to `ACTIVE`. |
+| 7 | Renter | Confirms the listed device condition and receipt. |
+| 8 | Platform | Records the renter's confirmation, changes the booking status to `ACTIVE`, and creates a pending payment record. |
 
 ### Collection confirmation requirements
 
 - QR token is valid, unexpired and unused.
 - QR token belongs to the correct booking and collection event.
 - Owner and renter are the booking's authorized participants.
-- Initial condition photos are uploaded.
-- Both parties explicitly confirm the handover.
+- The renter explicitly confirms receipt and the listed condition.
 
-The rental should not become active until the required checks and both confirmations are complete.
+No payment is collected until a payment provider is integrated.
 
 ## 3. Fault Discovered During Collection
 
@@ -51,12 +56,12 @@ The rental should not become active until the required checks and both confirmat
    - **Resolve before handover:** Owner fixes the issue and both parties inspect the device again.
    - **Cancel booking:** The booking is cancelled and payment/deposit handling follows the cancellation policy.
 
-### System behaviour
+### Planned system behaviour
 
 - Keep the booking out of `ACTIVE` while the collection fault is unresolved.
 - Record the fault report, evidence, timestamps and agreed resolution.
 - Do not treat the QR scan alone as acceptance of the device.
-- Activate the rental only after the issue is resolved and both parties complete confirmation.
+- Activate the rental only after the issue is resolved and the renter confirms collection.
 
 ## 4. Device Return (Renter → Owner)
 
@@ -112,8 +117,8 @@ Do not automatically transfer the full deposit to the owner just because a damag
 | Purpose | Verify device collection | Verify device return |
 | Token | Unique collection token | New, unique return token |
 | Expiration | Example: 5 minutes | Example: 5 minutes |
-| Confirmation | Both parties | Both parties |
-| Successful result | Rental becomes `ACTIVE` after inspection and confirmation | Physical return is verified; completion and settlement follow the return-condition process |
+| Confirmation | Renter | Both parties (planned) |
+| Successful result | Rental becomes `ACTIVE` after the renter confirms inspection and receipt | Physical return is verified; completion and settlement follow the return-condition process |
 
 ### Business rules
 
@@ -121,9 +126,9 @@ Do not automatically transfer the full deposit to the owner just because a damag
 2. Each token must be single-use and expire after a defined period (for example, five minutes).
 3. Each token must be linked to the correct booking and event type.
 4. Only the booking's authorized owner and renter can complete their respective confirmations.
-5. Both parties must explicitly confirm the exchange.
-6. Store collection and return photos as separate condition records.
-7. A collection fault must prevent rental activation until resolved.
+5. The renter must explicitly confirm collection; both parties' return confirmations are planned.
+6. Collection and return photos are planned as separate condition records.
+7. Fault reporting and resolution before activation are planned; until then, renters should not confirm a device with an unresolved fault.
 8. A return damage claim must be recorded separately from physical return confirmation.
 9. Store verification timestamps and an audit history for admin review.
 10. Do not rely on QR scanning alone as proof of physical presence or device condition.
@@ -155,7 +160,7 @@ DEVICE_INSPECTION
         |                                 Yes
         |                                  |
         v                                  v
-BOTH_PARTIES_CONFIRM <--------------------+
+RENTER_CONFIRMS_COLLECTION <--------------+
         |
         v
       ACTIVE
@@ -250,9 +255,9 @@ Store a hash of the QR token rather than the raw secret token. Keep photos in fi
 |---|---|
 | Generate collection QR | Must have |
 | Scan and validate collection QR | Must have |
-| Both parties confirm collection | Must have |
-| Upload initial condition photos | Must have |
-| Report fault during collection | Must have |
+| Renter confirms collection | Implemented |
+| Upload initial condition photos | Planned |
+| Report fault during collection | Planned |
 | Generate and scan a separate return QR | Must have |
 | Both parties confirm return | Must have |
 | Upload return-condition photos | Must have |
@@ -269,4 +274,5 @@ Implement one reusable QR verification component with two event types:
 
 This avoids building two separate QR systems and keeps the implementation simpler.
 
-The QR process should be combined with device-condition photos, explicit confirmation from both parties, and separate fault/damage reporting. This gives GoGoRent a practical record of the device's custody journey while allowing owners and renters to manage the physical exchange themselves.
+The current collection flow records the renter's confirmation. Condition photos,
+fault/damage reporting and return confirmations remain planned features.

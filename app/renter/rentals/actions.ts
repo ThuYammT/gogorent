@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { notifyBookingEvent } from "@/lib/booking-notifications";
-import { HandoverError, verifyHandover } from "@/lib/handover";
+import { confirmCollection, HandoverError, verifyHandover } from "@/lib/handover";
 import { prisma } from "@/lib/prisma";
 import { requireRenter } from "@/lib/session";
 
@@ -35,6 +35,47 @@ export async function scanCollectionQr(
   revalidatePath(`/renter/rentals/${rentalId}`);
   revalidatePath("/owner/rentals");
   revalidatePath("/owner/notifications");
+  return { success: true };
+}
+
+export async function confirmCollectionReceipt(
+  rentalId: string,
+  _previousState: { error: string } | { success: true } | null,
+  formData: FormData,
+): Promise<{ error: string } | { success: true }> {
+  await requireRenter();
+
+  const listedCondition = formData.get("listedCondition");
+  if (typeof rentalId !== "string" ||
+      typeof listedCondition !== "string" ||
+      formData.get("condition") !== "confirmed" ||
+      formData.get("received") !== "confirmed") {
+    return { error: "Confirm the device condition and receipt before continuing." };
+  }
+
+  try {
+    await confirmCollection(rentalId, listedCondition);
+  } catch (error) {
+    if (error instanceof HandoverError) {
+      return { error: error.message };
+    }
+    console.error(
+      "Collection confirmation failed:",
+      error instanceof Error ? error.name : "Unknown error",
+    );
+    return { error: "Could not confirm collection. Please try again." };
+  }
+
+  revalidatePath(`/renter/rentals/${rentalId}`);
+  revalidatePath("/renter/rentals");
+  revalidatePath("/renter/dashboard");
+  revalidatePath("/owner/rentals");
+  revalidatePath("/owner/devices");
+  revalidatePath("/owner/dashboard");
+  revalidatePath("/owner/notifications");
+  revalidatePath("/admin/dashboard");
+  revalidatePath("/admin/transactions");
+  revalidatePath("/devices");
   return { success: true };
 }
 

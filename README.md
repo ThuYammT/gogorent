@@ -54,8 +54,11 @@ code is lost, it cannot be retrieved and a new one can be generated after it
 expires. The renter opens the approved booking under Your bookings and scans
 the code with their camera or uploads a QR photo. Photos are decoded on the
 device; only the QR code is sent for verification. Camera access requires
-permission and HTTPS (or localhost). Scanning notifies the owner but does not
-activate the rental; collection confirmation is not implemented yet.
+permission and HTTPS (or localhost). After scanning, the renter confirms
+receipt and the listed condition. This activates the rental and creates one
+pending rental payment for the rental amount plus deposit. No payment is
+charged: payment-provider integration is not implemented yet. The current
+collection flow does not require owner confirmation or condition photos.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

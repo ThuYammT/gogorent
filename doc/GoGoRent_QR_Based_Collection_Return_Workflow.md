@@ -11,10 +11,10 @@ The owner and renter meet in person, scan a booking-specific QR code, inspect th
 **Current implementation:** After the collection QR is scanned, the renter
 confirms receipt and that the device matches its listed condition. That
 confirmation activates the rental and creates one pending rental payment
-record for the rental amount plus deposit. No payment is charged. Owner
-confirmation, collection photos, fault reporting, payment processing, and the
-return workflow described below are not yet implemented or required for this
-collection confirmation.
+record for the rental amount plus deposit. No payment is charged. Pre-acceptance
+fault reporting and agreed resolutions are implemented. Owner collection
+confirmation, collection condition photos, payment processing, and the return
+workflow described below are not yet implemented.
 
 ## 2. Device Collection (Owner → Renter)
 
@@ -54,14 +54,21 @@ No payment is collected until a payment provider is integrated.
 6. The parties agree on one of the available outcomes:
    - **Replace device:** Owner offers another suitable device, subject to renter agreement and an updated record.
    - **Resolve before handover:** Owner fixes the issue and both parties inspect the device again.
-   - **Cancel booking:** The booking is cancelled and payment/deposit handling follows the cancellation policy.
+   - **Cancel booking:** The booking is cancelled by agreement. Existing transactions are flagged for manual review under the cancellation policy; no money moves automatically.
 
-### Planned system behaviour
+### Current system behaviour
 
-- Keep the booking out of `ACTIVE` while the collection fault is unresolved.
-- Record the fault report, evidence, timestamps and agreed resolution.
-- Do not treat the QR scan alone as acceptance of the device.
-- Activate the rental only after the issue is resolved and the renter confirms collection.
+- An unresolved issue blocks collection confirmation and ordinary cancellation.
+- The owner proposes an outcome and the renter accepts or declines it. Repair
+  requires both parties to confirm reinspection.
+- Replacement must be an available device from the same owner. The original
+  rental price and deposit remain unchanged, the faulty device stays
+  unavailable, and a fresh collection QR must be generated and scanned.
+- Reports may include up to five photos or videos, each at most 10 MB. Evidence
+  requires a manually created private `collection-issue-evidence` Supabase
+  bucket; reports without files do not require it.
+- The QR scan alone is not acceptance. The renter must still confirm receipt
+  and condition before the rental becomes active.
 
 ## 4. Device Return (Renter → Owner)
 

@@ -141,6 +141,9 @@ async function RentalsContent({
           where: { type: "COLLECTION" },
           select: { status: true },
         },
+        collectionIssues: {
+          select: { status: true },
+        },
 
         device: {
           include: {
@@ -410,17 +413,27 @@ async function RentalsContent({
                         )}
                       </span>
 
+                      {rental.collectionIssues.length > 0 && (
+                        <div className="mt-2">
+                          <Link href={`/owner/rentals/${rental.id}/issue`} className="text-xs font-semibold text-amber-700 underline">
+                            {rental.collectionIssues.some((issue) => issue.status !== "RESOLVED") ? "Review device issue" : "View issue history"}
+                          </Link>
+                        </div>
+                      )}
+
                       {rental.status ===
                         "APPROVED" && (
                         <>
-                          {rental.handovers.some((handover) => handover.status !== "INITIATED") ? (
+                          {rental.collectionIssues.some((issue) => issue.status !== "RESOLVED") ? (
+                            <p className="mt-3 text-xs font-semibold text-amber-700">Collection paused for a device issue</p>
+                          ) : rental.handovers.some((handover) => handover.status !== "INITIATED") ? (
                             <p className="mt-3 text-xs font-semibold text-emerald-700">
                               Collection QR scanned
                             </p>
                           ) : (
                             <CollectionQr rentalId={rental.id} />
                           )}
-                          <form
+                          {!rental.collectionIssues.some((issue) => issue.status !== "RESOLVED") && <form
                             action={cancelOwnerBooking.bind(
                               null,
                               rental.id,
@@ -433,7 +446,7 @@ async function RentalsContent({
                             >
                               Cancel booking
                             </button>
-                          </form>
+                          </form>}
                         </>
                       )}
                     </div>

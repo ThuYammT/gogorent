@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { notifyBookingEvent } from "@/lib/booking-notifications";
+import { lockRental, requireNoOpenCollectionIssue } from "@/lib/handover";
 import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/session";
 
@@ -47,14 +48,19 @@ export async function approveRentalRequest(
       );
     }
 
-    await transaction.device.update({
+    const reserved = await transaction.device.updateMany({
       where: {
         id: rental.deviceId,
+        ownerId: owner.id,
+        status: "AVAILABLE",
       },
       data: {
         status: "UNAVAILABLE",
       },
     });
+    if (reserved.count !== 1) {
+      throw new Error("The device is no longer available for this booking.");
+    }
 
     await notifyBookingEvent(
       transaction,
@@ -138,6 +144,8 @@ export async function cancelOwnerBooking(rentalId: string) {
   const owner = await requireOwner();
 
   await prisma.$transaction(async (transaction) => {
+    await lockRental(transaction, rentalId);
+    await requireNoOpenCollectionIssue(transaction, rentalId);
     const rental = await transaction.rental.findFirst({
       where: {
         id: rentalId,

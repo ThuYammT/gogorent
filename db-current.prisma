@@ -1,0 +1,390 @@
+generator client {
+  provider        = "prisma-client"
+  output          = "../lib/generated/prisma"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id                         String                      @id @default(cuid())
+  name                       String
+  email                      String                      @unique
+  passwordHash               String
+  phone                      String?
+  avatarUrl                  String?
+  location                   String?
+  bio                        String?
+  role                       Role                        @default(RENTER)
+  status                     UserStatus                  @default(ACTIVE)
+  isVerified                 Boolean                     @default(false)
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  auditLogs                  AuditLog[]
+  damageReports              DamageReport[]
+  devices                    Device[]
+  favorites                  Favorite[]
+  handoverVerificationLimits HandoverVerificationLimit[]
+  notifications              Notification[]
+  ownedRentals               Rental[]                    @relation("RentalOwner")
+  rentals                    Rental[]                    @relation("RentalRenter")
+  reviews                    Review[]
+  sessions                   Session[]
+}
+
+model Session {
+  tokenHash String   @id
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Category {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  emoji   String?
+  devices Device[]
+}
+
+model Device {
+  id                   String            @id @default(cuid())
+  ownerId              String
+  categoryId           String
+  name                 String
+  description          String
+  brand                String?
+  model                String?
+  condition            DeviceCondition   @default(GOOD)
+  pricePerDay          Decimal           @db.Decimal(10, 2)
+  depositAmount        Decimal           @db.Decimal(10, 2)
+  location             String?
+  emoji                String?
+  status               DeviceStatus      @default(PENDING_APPROVAL)
+  avgRating            Float             @default(0)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  latitude             Float?
+  longitude            Float?
+  collectionIssues     CollectionIssue[] @relation("IssueDevice")
+  proposedReplacements CollectionIssue[] @relation("IssueReplacement")
+  category             Category          @relation(fields: [categoryId], references: [id])
+  owner                User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  images               DeviceImage[]
+  favorites            Favorite[]
+  notifications        Notification[]
+  rentals              Rental[]
+  reviews              Review[]
+
+  @@index([ownerId])
+  @@index([categoryId])
+  @@index([status])
+}
+
+model DeviceImage {
+  id        String   @id @default(cuid())
+  deviceId  String
+  url       String
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+}
+
+model Rental {
+  id                         String                      @id @default(cuid())
+  deviceId                   String
+  renterId                   String
+  ownerId                    String
+  startDate                  DateTime
+  endDate                    DateTime
+  totalDays                  Int
+  pricePerDay                Decimal                     @db.Decimal(10, 2)
+  rentalAmount               Decimal                     @db.Decimal(10, 2)
+  depositAmount              Decimal                     @db.Decimal(10, 2)
+  totalAmount                Decimal                     @db.Decimal(10, 2)
+  status                     RentalStatus                @default(REQUESTED)
+  renterNote                 String?
+  rejectReason               String?
+  pickedUpAt                 DateTime?
+  returnedAt                 DateTime?
+  createdAt                  DateTime                    @default(now())
+  updatedAt                  DateTime                    @updatedAt
+  collectionIssues           CollectionIssue?
+  damageReports              DamageReport[]
+  handovers                  Handover[]
+  handoverVerificationLimits HandoverVerificationLimit[]
+  notifications              Notification[]
+  device                     Device                      @relation(fields: [deviceId], references: [id])
+  owner                      User                        @relation("RentalOwner", fields: [ownerId], references: [id])
+  renter                     User                        @relation("RentalRenter", fields: [renterId], references: [id])
+  review                     Review?
+  transactions               Transaction[]
+
+  @@index([deviceId])
+  @@index([renterId])
+  @@index([ownerId])
+  @@index([status])
+}
+
+model CollectionIssue {
+  id                    String                    @id @default(cuid())
+  rentalId              String                    @unique(map: "CollectionIssue_one_open_per_rental", where: raw("(status = ANY (ARRAY['OPEN'::\"CollectionIssueStatus\", 'PROPOSED'::\"CollectionIssueStatus\"]))"))
+  deviceId              String
+  category              CollectionIssueCategory
+  description           String
+  status                CollectionIssueStatus     @default(OPEN)
+  proposedOutcome       CollectionIssueOutcome?
+  replacementDeviceId   String?
+  proposedAt            DateTime?
+  resolvedAt            DateTime?
+  paymentReviewRequired Boolean                   @default(false)
+  createdAt             DateTime                  @default(now())
+  updatedAt             DateTime                  @updatedAt
+  device                Device                    @relation("IssueDevice", fields: [deviceId], references: [id])
+  rental                Rental                    @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  replacementDevice     Device?                   @relation("IssueReplacement", fields: [replacementDeviceId], references: [id])
+  evidence              CollectionIssueEvidence[]
+
+  @@index([rentalId, status])
+}
+
+model CollectionIssueEvidence {
+  id        String          @id @default(cuid())
+  issueId   String
+  path      String          @unique
+  mimeType  String
+  createdAt DateTime        @default(now())
+  issue     CollectionIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
+}
+
+model Handover {
+  id                String         @id @default(cuid())
+  rentalId          String
+  type              HandoverType
+  status            HandoverStatus @default(INITIATED)
+  tokenHash         String         @unique
+  expiresAt         DateTime
+  scannedAt         DateTime?
+  ownerConfirmedAt  DateTime?
+  renterConfirmedAt DateTime?
+  verifiedAt        DateTime?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  rental            Rental         @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  @@unique([rentalId, type])
+}
+
+model HandoverVerificationLimit {
+  rentalId    String
+  userId      String
+  windowStart DateTime
+  attempts    Int
+  rental      Rental   @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([rentalId, userId])
+}
+
+model Transaction {
+  id         String            @id @default(cuid())
+  rentalId   String
+  type       TransactionType
+  amount     Decimal           @db.Decimal(10, 2)
+  status     TransactionStatus @default(PENDING)
+  paymentRef String?
+  createdAt  DateTime          @default(now())
+  rental     Rental            @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  @@index([rentalId])
+  @@index([status])
+}
+
+model DamageReport {
+  id              String        @id @default(cuid())
+  rentalId        String
+  reporterId      String
+  description     String
+  estimatedCost   Decimal?      @db.Decimal(10, 2)
+  deductionAmount Decimal?      @db.Decimal(10, 2)
+  status          DamageStatus  @default(OPEN)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  images          DamageImage[]
+  rental          Rental        @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  reporter        User          @relation(fields: [reporterId], references: [id])
+
+  @@index([rentalId])
+  @@index([reporterId])
+}
+
+model DamageImage {
+  id             String       @id @default(cuid())
+  damageReportId String
+  url            String
+  createdAt      DateTime     @default(now())
+  damageReport   DamageReport @relation(fields: [damageReportId], references: [id], onDelete: Cascade)
+
+  @@index([damageReportId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  rentalId  String   @unique
+  deviceId  String
+  authorId  String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  author    User     @relation(fields: [authorId], references: [id])
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  rental    Rental   @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId])
+  @@index([authorId])
+}
+
+model Favorite {
+  userId    String
+  deviceId  String
+  createdAt DateTime @default(now())
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, deviceId])
+  @@index([deviceId])
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  type      String?
+  deviceId  String?
+  rentalId  String?
+  device    Device?  @relation(fields: [deviceId], references: [id])
+  rental    Rental?  @relation(fields: [rentalId], references: [id])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([rentalId])
+  @@index([deviceId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  details   String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+}
+
+enum Role {
+  RENTER
+  OWNER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum DeviceStatus {
+  PENDING_APPROVAL
+  AVAILABLE
+  RENTED
+  UNAVAILABLE
+  REJECTED
+}
+
+enum DeviceCondition {
+  NEW
+  LIKE_NEW
+  GOOD
+  FAIR
+}
+
+enum RentalStatus {
+  REQUESTED
+  APPROVED
+  REJECTED
+  ACTIVE
+  RETURNED
+  COMPLETED
+  CANCELLED
+  DISPUTED
+}
+
+enum TransactionType {
+  RENTAL_PAYMENT
+  DEPOSIT_HOLD
+  DEPOSIT_REFUND
+  OWNER_PAYOUT
+  PLATFORM_FEE
+  DAMAGE_CHARGE
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum DamageStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum HandoverType {
+  COLLECTION
+  RETURN
+}
+
+enum HandoverStatus {
+  INITIATED
+  QR_SCANNED
+  VERIFIED
+}
+
+enum CollectionIssueCategory {
+  POWER
+  FUNCTIONALITY
+  PHYSICAL_DAMAGE
+  MISSING_ACCESSORY
+  OTHER
+}
+
+enum CollectionIssueStatus {
+  OPEN
+  PROPOSED
+  RESOLVED
+}
+
+enum CollectionIssueOutcome {
+  REPLACE
+  REPAIR
+  CANCEL
+}
+
+

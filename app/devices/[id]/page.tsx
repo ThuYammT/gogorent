@@ -15,6 +15,7 @@ import {
   UserRound,
 } from "lucide-react";
 
+import FavoriteButton from "@/components/devices/FavoriteButton";
 import RentalRequestForm from "@/components/devices/RentalRequestForm";
 import Navbar from "@/components/layout/Navbar";
 import { prisma } from "@/lib/prisma";
@@ -94,6 +95,25 @@ async function DeviceDetailContent({
 
   const reviewCount =
     device.reviews.length;
+
+  // Favorites: renters can save, guests are sent to login,
+  // owners/admins don't see the heart.
+  const favoriteViewer =
+    session?.role === "RENTER"
+      ? "renter"
+      : session
+        ? "hidden"
+        : "guest";
+
+  const isSaved =
+    favoriteViewer === "renter" && session
+      ? (await prisma.favorite.count({
+          where: {
+            userId: session.userId,
+            deviceId: device.id,
+          },
+        })) > 0
+      : false;
 
   const image =
     device.images[0]
@@ -180,6 +200,13 @@ async function DeviceDetailContent({
                   </span>
                 </div>
               </div>
+
+              <FavoriteButton
+                deviceId={device.id}
+                initialSaved={isSaved}
+                viewer={favoriteViewer}
+                className="border border-zinc-200"
+              />
             </div>
 
             <div className="mt-8 border-t border-zinc-200 pt-7">

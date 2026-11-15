@@ -48,13 +48,14 @@ in-app notification linking to the listing review. Administrators can find
 their notifications and mark them as read in the admin sidebar.
 
 Owners can generate a collection QR for an approved booking on the Rentals
-page. The code expires after five minutes and should only be shown to the
-booking's renter. Keep the page open: if the code is lost, it cannot be
-retrieved and a new one can be generated after it expires. The renter opens
-the approved booking under Your bookings and scans the code with their camera.
-Camera access requires permission and HTTPS (or localhost). Scanning notifies
-the owner but does not activate the rental; collection confirmation is not
-implemented yet.
+page. They can show the code or download it as a PNG to share with the
+booking's renter. The code expires after five minutes even if saved. If the
+code is lost, it cannot be retrieved and a new one can be generated after it
+expires. The renter opens the approved booking under Your bookings and scans
+the code with their camera or uploads a QR photo. Photos are decoded on the
+device; only the QR code is sent for verification. Camera access requires
+permission and HTTPS (or localhost). Scanning notifies the owner but does not
+activate the rental; collection confirmation is not implemented yet.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 

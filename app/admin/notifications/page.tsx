@@ -71,7 +71,14 @@ async function AdminNotificationsContent() {
                 />
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-start justify-between gap-2">
-                    {notification.deviceId ? (
+                    {notification.type === "COLLECTION_ISSUE_PAYMENT_REVIEW" ? (
+                      <Link
+                        href="/admin/transactions"
+                        className="text-sm font-semibold text-zinc-950 hover:underline"
+                      >
+                        {notification.title}
+                      </Link>
+                    ) : notification.deviceId ? (
                       <Link
                         href={`/admin/listings/${notification.deviceId}`}
                         className="text-sm font-semibold text-zinc-950 hover:underline"

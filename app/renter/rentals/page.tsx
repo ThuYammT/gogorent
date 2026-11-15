@@ -68,6 +68,11 @@ async function RenterRentalsContent({
             emoji: true,
           },
         },
+        collectionIssues: {
+          where: { status: { in: ["OPEN", "PROPOSED"] } },
+          select: { id: true },
+          take: 1,
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -246,7 +251,7 @@ async function RenterRentalsContent({
                         "APPROVED",
                       ].includes(
                         rental.status,
-                      ) && (
+                      ) && rental.collectionIssues.length === 0 && (
                         <form
                           action={cancelRenterBooking.bind(
                             null,

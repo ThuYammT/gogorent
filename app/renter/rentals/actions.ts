@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { notifyBookingEvent } from "@/lib/booking-notifications";
-import { confirmCollection, HandoverError, verifyHandover } from "@/lib/handover";
+import { confirmCollection, HandoverError, lockRental, requireNoOpenCollectionIssue, verifyHandover } from "@/lib/handover";
 import { prisma } from "@/lib/prisma";
 import { requireRenter } from "@/lib/session";
 
@@ -83,6 +83,8 @@ export async function cancelRenterBooking(rentalId: string) {
   const renter = await requireRenter();
 
   await prisma.$transaction(async (transaction) => {
+    await lockRental(transaction, rentalId);
+    await requireNoOpenCollectionIssue(transaction, rentalId);
     const rental = await transaction.rental.findFirst({
       where: {
         id: rentalId,

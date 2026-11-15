@@ -78,6 +78,26 @@ enum HandoverStatus {
   VERIFIED
 }
 
+enum CollectionIssueCategory {
+  POWER
+  FUNCTIONALITY
+  PHYSICAL_DAMAGE
+  MISSING_ACCESSORY
+  OTHER
+}
+
+enum CollectionIssueStatus {
+  OPEN
+  PROPOSED
+  RESOLVED
+}
+
+enum CollectionIssueOutcome {
+  REPLACE
+  REPAIR
+  CANCEL
+}
+
 model User {
   id           String     @id @default(cuid())
   name         String
@@ -152,6 +172,8 @@ model Device {
   reviews       Review[]
   favorites     Favorite[]
   notifications Notification[]
+  collectionIssues CollectionIssue[] @relation("IssueDevice")
+  proposedReplacements CollectionIssue[] @relation("IssueReplacement")
 
   @@index([ownerId])
   @@index([categoryId])
@@ -200,11 +222,47 @@ model Rental {
   notifications Notification[]
   handovers     Handover[]
   handoverVerificationLimits HandoverVerificationLimit[]
+  collectionIssues CollectionIssue[]
 
   @@index([deviceId])
   @@index([renterId])
   @@index([ownerId])
   @@index([status])
+}
+
+model CollectionIssue {
+  id                    String                 @id @default(cuid())
+  rentalId              String
+  deviceId              String
+  category              CollectionIssueCategory
+  description           String
+  status                CollectionIssueStatus  @default(OPEN)
+  proposedOutcome       CollectionIssueOutcome?
+  replacementDeviceId   String?
+  proposedAt            DateTime?
+  resolvedAt            DateTime?
+  paymentReviewRequired Boolean                @default(false)
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+
+  rental            Rental                    @relation(fields: [rentalId], references: [id], onDelete: Cascade)
+  device            Device                    @relation("IssueDevice", fields: [deviceId], references: [id])
+  replacementDevice Device?                   @relation("IssueReplacement", fields: [replacementDeviceId], references: [id])
+  evidence          CollectionIssueEvidence[]
+
+  @@index([rentalId, status])
+}
+
+model CollectionIssueEvidence {
+  id        String          @id @default(cuid())
+  issueId   String
+  path      String          @unique
+  mimeType  String
+  createdAt DateTime        @default(now())
+
+  issue CollectionIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
+
+  @@index([issueId])
 }
 
 model Handover {

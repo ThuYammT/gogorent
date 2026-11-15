@@ -60,6 +60,21 @@ pending rental payment for the rental amount plus deposit. No payment is
 charged: payment-provider integration is not implemented yet. The current
 collection flow does not require owner confirmation or condition photos.
 
+Before accepting a device, the renter can report an issue from the booking.
+The owner reviews it and proposes a replacement, repair and reinspection, or
+cancellation; the renter must accept or decline. Collection and ordinary
+cancellation are blocked while an issue is unresolved. Replacement keeps the
+original price and deposit and requires a new collection QR. Cancellation
+does not move money; existing transactions are flagged for administrator
+review under the applicable cancellation policy.
+
+Issue photos and videos are optional. To enable them, create a **private**
+Supabase Storage bucket named `collection-issue-evidence`, with a file-size
+limit of at least 10 MB. Up to five JPG, PNG, WebP, MP4, MOV or WebM files of
+10 MB each are accepted. Without the private bucket, reports without evidence
+still work; uploads fail with a configuration message. The server action body
+limit is 52 MB to accommodate the files and multipart overhead.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

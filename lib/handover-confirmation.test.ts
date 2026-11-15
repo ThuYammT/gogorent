@@ -9,6 +9,7 @@ let scannedAt: Date | null = new Date();
 let hasPayment = false;
 let deviceStatus = "UNAVAILABLE";
 let deviceCondition = "GOOD";
+let openIssue = false;
 let pickedUpAt: Date | undefined;
 let renterConfirmedAt: Date | undefined;
 const payments: { type: string; amount: string; status: string }[] = [];
@@ -24,6 +25,9 @@ const rental = {
 };
 const tx = {
   $queryRaw: async () => [],
+  collectionIssue: {
+    findFirst: async () => openIssue ? { id: "issue" } : null,
+  },
   rental: {
     findUnique: async ({ where }: { where: { id: string } }) =>
       where.id === rental.id ? { ...rental, status: rentalStatus } : null,
@@ -88,6 +92,7 @@ function reset() {
   hasPayment = false;
   deviceStatus = "UNAVAILABLE";
   deviceCondition = "GOOD";
+  openIssue = false;
   pickedUpAt = undefined;
   renterConfirmedAt = undefined;
   payments.length = 0;
@@ -156,5 +161,14 @@ test("rejects a changed condition or a device no longer reserved for collection"
   await assert.rejects(confirmCollection("booking", "GOOD"), /not available for collection/);
   assert.equal(handoverStatus, "QR_SCANNED");
   assert.equal(rentalStatus, "APPROVED");
+  assert.equal(payments.length, 0);
+});
+
+test("does not activate or create a payment while a collection issue is open", async () => {
+  reset();
+  openIssue = true;
+  await assert.rejects(confirmCollection("booking", "GOOD"), /Resolve the reported device issue/);
+  assert.equal(rentalStatus, "APPROVED");
+  assert.equal(handoverStatus, "QR_SCANNED");
   assert.equal(payments.length, 0);
 });

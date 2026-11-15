@@ -9,7 +9,7 @@ import {
 
 export class HandoverError extends Error {}
 
-async function lockRental(
+export async function lockRental(
   transaction: Prisma.TransactionClient,
   rentalId: string,
 ) {
@@ -19,6 +19,19 @@ async function lockRental(
     throw new HandoverError("Booking not found.");
   }
   return rental;
+}
+
+export async function requireNoOpenCollectionIssue(
+  transaction: Prisma.TransactionClient,
+  rentalId: string,
+) {
+  const issue = await transaction.collectionIssue.findFirst({
+    where: { rentalId, status: { in: ["OPEN", "PROPOSED"] } },
+    select: { id: true },
+  });
+  if (issue) {
+    throw new HandoverError("Resolve the reported device issue before continuing.");
+  }
 }
 
 function requireEligible(status: string, type: HandoverType) {
@@ -197,6 +210,7 @@ export async function confirmCollection(rentalId: string, listedCondition: strin
     if (rental.status !== "APPROVED") {
       throw new HandoverError("This booking is not awaiting collection confirmation.");
     }
+    await requireNoOpenCollectionIssue(transaction, rentalId);
 
     const handover = await transaction.handover.findUnique({
       where: { rentalId_type: { rentalId, type: "COLLECTION" } },

@@ -320,10 +320,11 @@ async function NotificationsContent({
                     );
                   const bookingHref =
                     notification.rentalId
-                      ? notification.type ===
-                        "BOOKING_REQUESTED"
-                        ? `/owner/requests#${notification.rentalId}`
-                        : `/owner/rentals?status=CANCELLED#${notification.rentalId}`
+                      ? notification.type?.startsWith("COLLECTION_ISSUE_")
+                        ? `/owner/rentals/${notification.rentalId}/issue`
+                        : notification.type === "BOOKING_REQUESTED"
+                          ? `/owner/requests#${notification.rentalId}`
+                          : `/owner/rentals#${notification.rentalId}`
                       : null;
 
                   return (

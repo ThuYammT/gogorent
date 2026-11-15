@@ -18,6 +18,9 @@ import {
 
 import CollectionQrScanner from "@/components/renter/CollectionQrScanner";
 import CollectionConfirmation from "@/components/renter/CollectionConfirmation";
+import CollectionIssues from "@/components/renter/CollectionIssues";
+import { ReportIssueForm } from "@/components/renter/CollectionIssueForms";
+import { collectionIssueInclude } from "@/lib/collection-issue-view";
 import { prisma } from "@/lib/prisma";
 import { requireRenter } from "@/lib/session";
 
@@ -93,12 +96,17 @@ async function RenterBookingContent({
           orderBy: { createdAt: "desc" },
           take: 1,
         },
+        collectionIssues: {
+          include: collectionIssueInclude,
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
 
   if (!rental) {
     notFound();
   }
+  const hasOpenIssue = rental.collectionIssues.some((issue) => issue.status !== "RESOLVED");
 
   return (
     <main className="p-5 md:p-8 lg:p-10">
@@ -271,7 +279,11 @@ async function RenterBookingContent({
             <div className="border-t border-zinc-100 px-6 py-6 md:px-7">
               
 
-              {rental.handovers.some((handover) => handover.status === "QR_SCANNED") ? (
+              {hasOpenIssue ? (
+                <p className="text-sm font-semibold text-amber-700">
+                  Collection is paused until the device issue is resolved.
+                </p>
+              ) : rental.handovers.some((handover) => handover.status === "QR_SCANNED") ? (
                 <CollectionConfirmation
                   rentalId={rental.id}
                   condition={rental.device.condition}
@@ -287,6 +299,15 @@ async function RenterBookingContent({
                   }
                 />
               )}
+            </div>
+          )}
+
+          {(rental.status === "APPROVED" || rental.collectionIssues.length > 0) && (
+            <div className="border-t border-zinc-100 px-6 py-6 md:px-7">
+              <h2 className="mb-4 text-base font-semibold text-zinc-900">Device issues</h2>
+              <CollectionIssues rentalId={rental.id} issues={rental.collectionIssues} role="RENTER"
+                canAct={rental.status === "APPROVED"} totalAmount={Number(rental.totalAmount).toLocaleString()} />
+              {rental.status === "APPROVED" && !hasOpenIssue && <ReportIssueForm rentalId={rental.id} />}
             </div>
           )}
 
@@ -309,7 +330,7 @@ async function RenterBookingContent({
             "APPROVED",
           ].includes(
             rental.status,
-          ) && (
+          ) && !hasOpenIssue && (
             <div className="border-t border-zinc-100 px-6 py-5 md:px-7">
               <form
                 action={cancelRenterBooking.bind(

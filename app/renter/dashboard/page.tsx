@@ -22,8 +22,10 @@ function statusStyle(
     case "ACTIVE":
       return "bg-blue-50 text-blue-700";
 
-    case "COMPLETED":
     case "RETURNED":
+      return "bg-amber-50 text-amber-700";
+
+    case "COMPLETED":
       return "bg-emerald-50 text-emerald-700";
 
     case "REJECTED":
@@ -32,9 +34,25 @@ function statusStyle(
     case "CANCELLED":
       return "bg-zinc-100 text-zinc-600";
 
+    case "DISPUTED":
+      return "bg-orange-50 text-orange-700";
+
     default:
       return "bg-amber-50 text-amber-700";
   }
+}
+
+function formatStatus(
+  status: string,
+) {
+  return status
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(
+      /\b\w/g,
+      (letter) =>
+        letter.toUpperCase(),
+    );
 }
 
 async function RenterDashboardContent() {
@@ -47,9 +65,12 @@ async function RenterDashboardContent() {
   ] = await Promise.all([
     prisma.rental.groupBy({
       by: ["status"],
+
       where: {
-        renterId: renter.id,
+        renterId:
+          renter.id,
       },
+
       _count: {
         _all: true,
       },
@@ -57,19 +78,39 @@ async function RenterDashboardContent() {
 
     prisma.rental.findMany({
       where: {
-        renterId: renter.id,
+        renterId:
+          renter.id,
       },
+
       include: {
         device: {
           select: {
             name: true,
             emoji: true,
+
+            images: {
+              orderBy: [
+                {
+                  isPrimary:
+                    "desc",
+                },
+                {
+                  createdAt:
+                    "asc",
+                },
+              ],
+
+              take: 1,
+            },
           },
         },
       },
+
       orderBy: {
-        createdAt: "desc",
+        createdAt:
+          "desc",
       },
+
       take: 5,
     }),
   ]);
@@ -92,33 +133,53 @@ async function RenterDashboardContent() {
 
   const stats = [
     {
-      label: "Active & upcoming",
+      label:
+        "Active & upcoming",
+
       description:
         "Approved or active bookings",
-      value: countFor(
-        "APPROVED",
-        "ACTIVE",
-      ),
-      icon: PackageCheck,
+
+      value:
+        countFor(
+          "APPROVED",
+          "ACTIVE",
+        ),
+
+      icon:
+        PackageCheck,
     },
+
     {
-      label: "Pending requests",
+      label:
+        "Pending requests",
+
       description:
         "Waiting for owner review",
-      value: countFor(
-        "REQUESTED",
-      ),
-      icon: Clock3,
+
+      value:
+        countFor(
+          "REQUESTED",
+        ),
+
+      icon:
+        Clock3,
     },
+
     {
-      label: "Completed",
+      label:
+        "Completed",
+
       description:
         "Finished rental history",
-      value: countFor(
-        "RETURNED",
-        "COMPLETED",
-      ),
-      icon: CalendarDays,
+
+      value:
+        countFor(
+          "RETURNED",
+          "COMPLETED",
+        ),
+
+      icon:
+        CalendarDays,
     },
   ];
 
@@ -131,7 +192,7 @@ async function RenterDashboardContent() {
   return (
     <main className="p-5 md:p-8 lg:p-10">
       <div className="mx-auto max-w-7xl">
-        {/* Heading */}
+        {/* HEADING */}
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
           <div>
             <p className="text-sm font-semibold text-amber-600">
@@ -155,39 +216,55 @@ async function RenterDashboardContent() {
             className="inline-flex w-fit items-center gap-2 rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-zinc-800"
           >
             <Search className="h-4 w-4" />
+
             Browse devices
           </Link>
         </div>
 
-        {/* Stats */}
+        {/* STATS */}
         <div className="mt-8 grid gap-4 md:grid-cols-3">
-          {stats.map((stat) => (
-            <section
-              key={stat.label}
-              className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
-                  <stat.icon className="h-5 w-5 text-amber-600" />
-                </div>
+          {stats.map(
+            (stat) => {
+              const Icon =
+                stat.icon;
 
-                <p className="text-3xl font-bold tracking-tight text-zinc-950">
-                  {stat.value}
-                </p>
-              </div>
+              return (
+                <section
+                  key={
+                    stat.label
+                  }
+                  className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50">
+                      <Icon className="h-5 w-5 text-amber-600" />
+                    </div>
 
-              <p className="mt-5 text-sm font-semibold text-zinc-900">
-                {stat.label}
-              </p>
+                    <p className="text-3xl font-bold tracking-tight text-zinc-950">
+                      {
+                        stat.value
+                      }
+                    </p>
+                  </div>
 
-              <p className="mt-1 text-xs text-zinc-500">
-                {stat.description}
-              </p>
-            </section>
-          ))}
+                  <p className="mt-5 text-sm font-semibold text-zinc-900">
+                    {
+                      stat.label
+                    }
+                  </p>
+
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {
+                      stat.description
+                    }
+                  </p>
+                </section>
+              );
+            },
+          )}
         </div>
 
-        {/* Browse CTA */}
+        {/* BROWSE CTA */}
         <section className="mt-6 flex flex-col justify-between gap-5 rounded-2xl border border-amber-200 bg-amber-50/70 p-6 md:flex-row md:items-center">
           <div>
             <p className="text-sm font-semibold text-amber-700">
@@ -211,11 +288,12 @@ async function RenterDashboardContent() {
             className="inline-flex w-fit items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-800 shadow-sm transition hover:bg-zinc-50"
           >
             Explore marketplace
+
             <ArrowRight className="h-4 w-4" />
           </Link>
         </section>
 
-        {/* Rentals */}
+        {/* RECENT BOOKINGS */}
         <section className="mt-8">
           <div className="flex items-center justify-between">
             <div>
@@ -254,53 +332,85 @@ async function RenterDashboardContent() {
                   Your booking requests
                   will appear here.
                 </p>
+
+                <Link
+                  href="/devices"
+                  className="mt-5 inline-flex rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
+                >
+                  Browse devices
+                </Link>
               </div>
             ) : (
               <div className="divide-y divide-zinc-100">
                 {recentRentals.map(
-                  (rental) => (
-                    <Link
-                      key={
-                        rental.id
-                      }
-                      href={`/renter/rentals/${rental.id}`}
-                      className="flex flex-col gap-4 p-5 transition hover:bg-zinc-50 sm:flex-row sm:items-center"
-                    >
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-xl">
-                        {rental
-                          .device
-                          .emoji ??
-                          "📦"}
-                      </div>
+                  (rental) => {
+                    const image =
+                      rental.device
+                        .images[0];
 
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-zinc-900">
-                          {
-                            rental
-                              .device
-                              .name
-                          }
-                        </p>
-
-                        <p className="mt-1 text-xs text-zinc-500">
-                          {rental.startDate.toLocaleDateString()}{" "}
-                          —{" "}
-                          {rental.endDate.toLocaleDateString()}
-                        </p>
-                      </div>
-
-                      <span
-                        className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${statusStyle(
-                          rental.status,
-                        )}`}
+                    return (
+                      <Link
+                        key={
+                          rental.id
+                        }
+                        href={`/renter/rentals/${rental.id}`}
+                        className="flex flex-col gap-4 p-5 transition hover:bg-zinc-50 sm:flex-row sm:items-center"
                       >
-                        {rental.status.replaceAll(
-                          "_",
-                          " ",
-                        )}
-                      </span>
-                    </Link>
-                  ),
+                        {/* DEVICE IMAGE */}
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-amber-50">
+                          {image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={
+                                image.url
+                              }
+                              alt={
+                                rental
+                                  .device
+                                  .name
+                              }
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xl">
+                              {rental
+                                .device
+                                .emoji ??
+                                "📦"}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* INFO */}
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-zinc-900">
+                            {
+                              rental
+                                .device
+                                .name
+                            }
+                          </p>
+
+                          <p className="mt-1 text-xs text-zinc-500">
+                            {rental.startDate.toLocaleDateString()}
+                            {" "}—{" "}
+                            {rental.endDate.toLocaleDateString()}
+                          </p>
+                        </div>
+
+                        {/* STATUS */}
+                        <span
+                          className={`w-fit rounded-full px-3 py-1 text-xs font-semibold ${statusStyle(
+                            rental.status,
+                          )}`}
+                        >
+                          {formatStatus(
+                            rental.status,
+                          )}
+                        </span>
+                      </Link>
+                    );
+                  },
                 )}
               </div>
             )}
@@ -311,13 +421,36 @@ async function RenterDashboardContent() {
   );
 }
 
+function DashboardLoading() {
+  return (
+    <main className="p-5 md:p-8 lg:p-10">
+      <div className="mx-auto max-w-7xl">
+        <div className="h-10 w-72 animate-pulse rounded-lg bg-zinc-200" />
+
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          {[1, 2, 3].map(
+            (item) => (
+              <div
+                key={item}
+                className="h-36 animate-pulse rounded-2xl bg-white"
+              />
+            ),
+          )}
+        </div>
+
+        <div className="mt-6 h-32 animate-pulse rounded-2xl bg-white" />
+
+        <div className="mt-8 h-[350px] animate-pulse rounded-2xl bg-white" />
+      </div>
+    </main>
+  );
+}
+
 export default function RenterDashboard() {
   return (
     <Suspense
       fallback={
-        <div className="p-6 text-sm text-zinc-500">
-          Loading dashboard...
-        </div>
+        <DashboardLoading />
       }
     >
       <RenterDashboardContent />

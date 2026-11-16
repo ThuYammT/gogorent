@@ -1,4 +1,7 @@
-import { Suspense } from "react";
+import {
+  Suspense,
+} from "react";
+
 import Link from "next/link";
 
 import {
@@ -8,10 +11,20 @@ import {
   UserRound,
 } from "lucide-react";
 
-import { prisma } from "@/lib/prisma";
-import { requireOwner } from "@/lib/session";
-import { cancelOwnerBooking } from "@/app/owner/requests/actions";
+import {
+  prisma,
+} from "@/lib/prisma";
+
+import {
+  requireOwner,
+} from "@/lib/session";
+
+import {
+  cancelOwnerBooking,
+} from "@/app/owner/requests/actions";
+
 import CollectionQr from "@/components/owner/CollectionQr";
+import ReturnQrScanner from "@/components/owner/ReturnQrScanner";
 
 type RentalsPageProps = {
   searchParams: Promise<{
@@ -84,7 +97,10 @@ function formatStatus(
   status: string,
 ) {
   return status
-    .replaceAll("_", " ")
+    .replaceAll(
+      "_",
+      " ",
+    )
     .toLowerCase()
     .replace(
       /\b\w/g,
@@ -137,12 +153,49 @@ async function RentalsContent({
         renter:
           true,
 
+        /*
+         * IMPORTANT:
+         * We need BOTH collection and return
+         * handovers for Phase 3.
+         */
         handovers: {
-          where: { type: "COLLECTION" },
-          select: { status: true },
+          select: {
+            type: true,
+            status: true,
+          },
         },
+
         collectionIssues: {
-          select: { status: true },
+          select: {
+            status: true,
+          },
+        },
+
+        transactions: {
+          where: {
+            type: {
+              in: [
+                "RENTAL_PAYMENT",
+                "DEPOSIT_HOLD",
+                "DEPOSIT_REFUND",
+                "OWNER_PAYOUT",
+                "PLATFORM_FEE",
+              ],
+            },
+          },
+
+          select: {
+            type: true,
+            status: true,
+            paymentRef: true,
+            amount: true,
+            createdAt: true,
+          },
+
+          orderBy: {
+            createdAt:
+              "desc",
+          },
         },
 
         device: {
@@ -173,7 +226,6 @@ async function RentalsContent({
 
   return (
     <>
-      {/* HEADER */}
       <header className="border-b border-zinc-200 bg-white px-6 py-8 md:px-10 xl:px-12">
         <div className="mx-auto max-w-[1400px]">
           <p className="text-sm font-medium text-zinc-500">
@@ -185,8 +237,7 @@ async function RentalsContent({
           </h1>
 
           <p className="mt-2 text-sm text-zinc-500">
-            Track approved booking requests, active rentals and rental history.
-            Approved device listings are shown under My Devices.
+            Track payments, collection, active rentals, returns and settlements.
           </p>
         </div>
       </header>
@@ -238,31 +289,13 @@ async function RentalsContent({
             </h2>
 
             <p className="mt-2 text-sm text-zinc-500">
-              {selectedStatus === "APPROVED"
-                ? "Approved booking requests appear here. An approved device listing becomes available for renters to request, but is not a booking."
-                : "Rentals matching this status will appear here."}
+              Rentals matching this status will appear here.
             </p>
-
-            {selectedStatus === "APPROVED" && (
-              <div className="mt-4 flex flex-wrap justify-center gap-4 text-sm font-semibold">
-                <Link
-                  href="/owner/devices?status=AVAILABLE"
-                  className="text-zinc-700 underline underline-offset-2 hover:text-zinc-950"
-                >
-                  View available devices
-                </Link>
-                <Link
-                  href="/owner/requests"
-                  className="text-zinc-700 underline underline-offset-2 hover:text-zinc-950"
-                >
-                  Review booking requests
-                </Link>
-              </div>
-            )}
           </section>
         ) : (
           <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-            <div className="hidden grid-cols-[2fr_1.2fr_1.3fr_1fr_.8fr] border-b border-zinc-100 bg-zinc-50 px-6 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 lg:grid">
+            {/* TABLE HEADER */}
+            <div className="hidden grid-cols-[2fr_1.2fr_1.3fr_1fr_1.7fr] border-b border-zinc-100 bg-zinc-50 px-6 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 lg:grid">
               <span>
                 Device
               </span>
@@ -280,178 +313,353 @@ async function RentalsContent({
               </span>
 
               <span className="text-right">
-                Status
+                Status / Action
               </span>
             </div>
 
             <div className="divide-y divide-zinc-100">
               {rentals.map(
-                (
-                  rental,
-                ) => (
-                  <div
-                    key={
-                      rental.id
-                    }
-                    id={rental.id}
-                    className="grid gap-5 px-6 py-5 lg:grid-cols-[2fr_1.2fr_1.3fr_1fr_.8fr] lg:items-center"
-                  >
-                    {/* DEVICE */}
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-zinc-100">
-                        {rental
-                          .device
-                          .images[0] ? (
-                          <img
-                            src={
-                              rental
+                (rental) => {
+                  const rentalPaymentComplete =
+                    rental.transactions.some(
+                      (
+                        transaction,
+                      ) =>
+                        transaction.type ===
+                          "RENTAL_PAYMENT" &&
+                        transaction.status ===
+                          "COMPLETED",
+                    );
+
+                  const depositComplete =
+                    rental.transactions.some(
+                      (
+                        transaction,
+                      ) =>
+                        transaction.type ===
+                          "DEPOSIT_HOLD" &&
+                        transaction.status ===
+                          "COMPLETED",
+                    );
+
+                  const paymentComplete =
+                    rentalPaymentComplete &&
+                    depositComplete;
+
+                  const paymentStarted =
+                    rental.transactions.some(
+                      (
+                        transaction,
+                      ) =>
+                        Boolean(
+                          transaction.paymentRef,
+                        ) &&
+                        transaction.status ===
+                          "PENDING",
+                    );
+
+                  const hasOpenIssue =
+                    rental.collectionIssues.some(
+                      (
+                        issue,
+                      ) =>
+                        issue.status !==
+                        "RESOLVED",
+                    );
+
+                  const collectionScanned =
+                    rental.handovers.some(
+                      (
+                        handover,
+                      ) =>
+                        handover.type ===
+                          "COLLECTION" &&
+                        (handover.status ===
+                          "QR_SCANNED" ||
+                          handover.status ===
+                            "VERIFIED"),
+                    );
+
+                  const returnScanned =
+                    rental.handovers.some(
+                      (
+                        handover,
+                      ) =>
+                        handover.type ===
+                          "RETURN" &&
+                        handover.status ===
+                          "QR_SCANNED",
+                    );
+
+                  const depositRefund =
+                    rental.transactions.find(
+                      (
+                        transaction,
+                      ) =>
+                        transaction.type ===
+                        "DEPOSIT_REFUND",
+                    );
+
+                  const ownerPayout =
+                    rental.transactions.find(
+                      (
+                        transaction,
+                      ) =>
+                        transaction.type ===
+                        "OWNER_PAYOUT",
+                    );
+
+                  return (
+                    <div
+                      key={
+                        rental.id
+                      }
+                      id={
+                        rental.id
+                      }
+                      className="grid gap-5 px-6 py-5 lg:grid-cols-[2fr_1.2fr_1.3fr_1fr_1.7fr] lg:items-center"
+                    >
+                      {/* DEVICE */}
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-zinc-100">
+                          {rental
+                            .device
+                            .images[0] ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={
+                                rental
+                                  .device
+                                  .images[0]
+                                  .url
+                              }
+                              alt={
+                                rental
+                                  .device
+                                  .name
+                              }
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xl">
+                              {rental
                                 .device
-                                .images[0]
-                                .url
-                            }
-                            alt={
+                                .emoji ??
+                                "📦"}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-zinc-900">
+                            {
                               rental
                                 .device
                                 .name
                             }
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-xl">
-                            {rental
-                              .device
-                              .emoji ??
-                              "📦"}
-                          </div>
-                        )}
+                          </p>
+
+                          <p className="mt-1 text-xs text-zinc-400">
+                            Rental #
+                            {rental.id.slice(
+                              -6,
+                            )}
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-zinc-900">
+                      {/* RENTER */}
+                      <div className="flex items-center gap-2">
+                        <UserRound className="h-4 w-4 shrink-0 text-zinc-400" />
+
+                        <span className="truncate text-sm text-zinc-600">
                           {
                             rental
-                              .device
+                              .renter
                               .name
                           }
+                        </span>
+                      </div>
+
+                      {/* DATES */}
+                      <div className="flex gap-2">
+                        <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
+
+                        <div>
+                          <p className="text-sm text-zinc-700">
+                            {rental.startDate.toLocaleDateString()}
+                            {" "}–{" "}
+                            {rental.endDate.toLocaleDateString()}
+                          </p>
+
+                          <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">
+                            <Clock3 className="h-3 w-3" />
+
+                            {
+                              rental.totalDays
+                            }{" "}
+                            day
+                            {rental.totalDays ===
+                            1
+                              ? ""
+                              : "s"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* AMOUNT */}
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-950">
+                          ฿
+                          {Number(
+                            rental.rentalAmount,
+                          ).toLocaleString()}
                         </p>
 
                         <p className="mt-1 text-xs text-zinc-400">
-                          Rental #
-                          {rental.id.slice(
-                            -6,
-                          )}
+                          + ฿
+                          {Number(
+                            rental.depositAmount,
+                          ).toLocaleString()}{" "}
+                          deposit
                         </p>
                       </div>
-                    </div>
 
-                    {/* RENTER */}
-                    <div className="flex items-center gap-2">
-                      <UserRound className="h-4 w-4 shrink-0 text-zinc-400" />
-
-                      <span className="truncate text-sm text-zinc-600">
-                        {
-                          rental
-                            .renter
-                            .name
-                        }
-                      </span>
-                    </div>
-
-                    {/* DATES */}
-                    <div className="flex gap-2">
-                      <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
-
-                      <div>
-                        <p className="text-sm text-zinc-700">
-                          {rental.startDate.toLocaleDateString()}
-                          {" "}–{" "}
-                          {rental.endDate.toLocaleDateString()}
-                        </p>
-
-                        <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">
-                          <Clock3 className="h-3 w-3" />
-
-                          {
-                            rental.totalDays
-                          }{" "}
-                          day
-                          {rental.totalDays ===
-                          1
-                            ? ""
-                            : "s"}
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* AMOUNT */}
-                    <div>
-                      <p className="text-sm font-semibold text-zinc-950">
-                        ฿
-                        {Number(
-                          rental.rentalAmount,
-                        ).toLocaleString()}
-                      </p>
-
-                      <p className="mt-1 text-xs text-zinc-400">
-                        + ฿
-                        {Number(
-                          rental.depositAmount,
-                        ).toLocaleString()}{" "}
-                        deposit
-                      </p>
-                    </div>
-
-                    {/* STATUS */}
-                    <div className="lg:text-right">
-                      <span
-                        className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${statusStyle(
-                          rental.status,
-                        )}`}
-                      >
-                        {formatStatus(
-                          rental.status,
-                        )}
-                      </span>
-
-                      {rental.collectionIssues.length > 0 && (
-                        <div className="mt-2">
-                          <Link href={`/owner/rentals/${rental.id}/issue`} className="text-xs font-semibold text-amber-700 underline">
-                            {rental.collectionIssues.some((issue) => issue.status !== "RESOLVED") ? "Review device issue" : "View issue history"}
-                          </Link>
-                        </div>
-                      )}
-
-                      {rental.status ===
-                        "APPROVED" && (
-                        <>
-                          {rental.collectionIssues.some((issue) => issue.status !== "RESOLVED") ? (
-                            <p className="mt-3 text-xs font-semibold text-amber-700">Collection paused for a device issue</p>
-                          ) : rental.handovers.some((handover) => handover.status !== "INITIATED") ? (
-                            <p className="mt-3 text-xs font-semibold text-emerald-700">
-                              Collection QR scanned
-                            </p>
-                          ) : (
-                            <CollectionQr rentalId={rental.id} />
+                      {/* STATUS / ACTION */}
+                      <div className="lg:text-right">
+                        <span
+                          className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${statusStyle(
+                            rental.status,
+                          )}`}
+                        >
+                          {formatStatus(
+                            rental.status,
                           )}
-                          {!rental.collectionIssues.some((issue) => issue.status !== "RESOLVED") && <form
-                            action={cancelOwnerBooking.bind(
-                              null,
-                              rental.id,
+                        </span>
+
+                        {/* APPROVED */}
+                        {rental.status ===
+                          "APPROVED" && (
+                          <>
+                            <div className="mt-2">
+                              {paymentComplete ? (
+                                <span className="inline-flex rounded-md bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+                                  Payment completed
+                                </span>
+                              ) : paymentStarted ? (
+                                <span className="inline-flex rounded-md bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                                  PromptPay pending
+                                </span>
+                              ) : (
+                                <span className="inline-flex rounded-md bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                                  Awaiting payment
+                                </span>
+                              )}
+                            </div>
+
+                            {hasOpenIssue ? (
+                              <p className="mt-3 text-xs font-semibold text-amber-700">
+                                Collection paused for a device issue
+                              </p>
+                            ) : !paymentComplete ? (
+                              <p className="mt-3 text-xs text-zinc-500">
+                                Collection QR unlocks after payment.
+                              </p>
+                            ) : collectionScanned ? (
+                              <p className="mt-3 text-xs font-semibold text-emerald-700">
+                                Collection QR scanned
+                              </p>
+                            ) : (
+                              <CollectionQr
+                                rentalId={
+                                  rental.id
+                                }
+                              />
                             )}
-                            className="mt-2"
-                          >
-                            <button
-                              type="submit"
-                              className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-900"
+
+                            {!hasOpenIssue &&
+                              !paymentComplete &&
+                              !paymentStarted && (
+                                <form
+                                  action={cancelOwnerBooking.bind(
+                                    null,
+                                    rental.id,
+                                  )}
+                                  className="mt-2"
+                                >
+                                  <button
+                                    type="submit"
+                                    className="text-xs font-medium text-zinc-500 underline underline-offset-2 hover:text-zinc-900"
+                                  >
+                                    Cancel booking
+                                  </button>
+                                </form>
+                              )}
+                          </>
+                        )}
+
+                        {/* ACTIVE / RETURN */}
+                        {rental.status ===
+                          "ACTIVE" && (
+                          <ReturnQrScanner
+                            rentalId={
+                              rental.id
+                            }
+                            alreadyScanned={
+                              returnScanned
+                            }
+                          />
+                        )}
+
+                        {/* RETURNED */}
+                        {rental.status ===
+                          "RETURNED" && (
+                          <div className="mt-3 space-y-1 text-xs">
+                            <p className="font-semibold text-amber-700">
+                              Settlement pending
+                            </p>
+
+                            <p className="text-zinc-500">
+                              Deposit refund:{" "}
+                              {depositRefund?.status ??
+                                "PENDING"}
+                            </p>
+
+                            <p className="text-zinc-500">
+                              Owner payout:{" "}
+                              {ownerPayout?.status ??
+                                "PENDING"}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* COMPLETED */}
+                        {rental.status ===
+                          "COMPLETED" && (
+                          <p className="mt-3 text-xs font-semibold text-emerald-700">
+                            Return and settlement completed
+                          </p>
+                        )}
+
+                        {rental
+                          .collectionIssues
+                          .length >
+                          0 && (
+                          <div className="mt-2">
+                            <Link
+                              href={`/owner/rentals/${rental.id}/issue`}
+                              className="text-xs font-semibold text-amber-700 underline underline-offset-2"
                             >
-                              Cancel booking
-                            </button>
-                          </form>}
-                        </>
-                      )}
+                              {hasOpenIssue
+                                ? "Review device issue"
+                                : "View issue history"}
+                            </Link>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ),
+                  );
+                },
               )}
             </div>
           </section>

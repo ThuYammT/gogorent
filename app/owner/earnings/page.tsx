@@ -1,4 +1,7 @@
-import { Suspense } from "react";
+import {
+  Suspense,
+} from "react";
+
 import Link from "next/link";
 
 import {
@@ -8,11 +11,18 @@ import {
   ChevronRight,
   CircleDollarSign,
   Clock3,
+  ExternalLink,
+  FileCheck2,
   ReceiptText,
 } from "lucide-react";
 
-import { prisma } from "@/lib/prisma";
-import { requireOwner } from "@/lib/session";
+import {
+  prisma,
+} from "@/lib/prisma";
+
+import {
+  requireOwner,
+} from "@/lib/session";
 
 const PAGE_SIZE = 10;
 
@@ -74,6 +84,28 @@ function formatStatus(
       (letter) =>
         letter.toUpperCase(),
     );
+}
+
+function formatTransferReference(
+  paymentRef:
+    | string
+    | null,
+) {
+  if (!paymentRef) {
+    return "—";
+  }
+
+  if (
+    paymentRef.startsWith(
+      "MANUAL:",
+    )
+  ) {
+    return paymentRef.slice(
+      "MANUAL:".length,
+    );
+  }
+
+  return paymentRef;
 }
 
 function createPageHref({
@@ -499,8 +531,8 @@ async function EarningsContent({
           ) : (
             <>
               <div className="overflow-x-auto">
-                <div className="min-w-[850px]">
-                  <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] border-b border-zinc-100 bg-zinc-50 px-6 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                <div className="min-w-[1050px]">
+                  <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1.5fr] border-b border-zinc-100 bg-zinc-50 px-6 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500">
                     <span>
                       Rental
                     </span>
@@ -517,8 +549,12 @@ async function EarningsContent({
                       Status
                     </span>
 
-                    <span className="text-right">
+                    <span>
                       Date
+                    </span>
+
+                    <span className="text-right">
+                      Admin proof
                     </span>
                   </div>
 
@@ -526,98 +562,143 @@ async function EarningsContent({
                     {payouts.map(
                       (
                         payout,
-                      ) => (
-                        <div
-                          key={
-                            payout.id
-                          }
-                          className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr] items-center px-6 py-5"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
-                              {payout
-                                .rental
-                                .device
-                                .images[0] ? (
-                                <img
-                                  src={
-                                    payout
+                      ) => {
+                        const reference =
+                          formatTransferReference(
+                            payout.paymentRef,
+                          );
+
+                        return (
+                          <div
+                            key={
+                              payout.id
+                            }
+                            className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_1.5fr] items-center gap-3 px-6 py-5"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-zinc-100">
+                                {payout
+                                  .rental
+                                  .device
+                                  .images[0] ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={
+                                      payout
+                                        .rental
+                                        .device
+                                        .images[0]
+                                        .url
+                                    }
+                                    alt={
+                                      payout
+                                        .rental
+                                        .device
+                                        .name
+                                    }
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-lg">
+                                    {payout
                                       .rental
                                       .device
-                                      .images[0]
-                                      .url
-                                  }
-                                  alt={
+                                      .emoji ??
+                                      "📦"}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-semibold text-zinc-900">
+                                  {
                                     payout
                                       .rental
                                       .device
                                       .name
                                   }
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center text-lg">
-                                  {payout
-                                    .rental
-                                    .device
-                                    .emoji ??
-                                    "📦"}
-                                </div>
-                              )}
+                                </p>
+
+                                <p className="mt-1 text-xs text-zinc-400">
+                                  Rental #
+                                  {payout.rentalId.slice(
+                                    -6,
+                                  )}
+                                </p>
+                              </div>
                             </div>
 
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-zinc-900">
-                                {
-                                  payout
-                                    .rental
-                                    .device
-                                    .name
-                                }
-                              </p>
+                            <p className="truncate text-sm text-zinc-600">
+                              {
+                                payout
+                                  .rental
+                                  .renter
+                                  .name
+                              }
+                            </p>
 
-                              <p className="mt-1 text-xs text-zinc-400">
-                                Rental #
-                                {payout.rentalId.slice(
-                                  -6,
+                            <p className="text-sm font-semibold text-zinc-950">
+                              ฿
+                              {Number(
+                                payout.amount,
+                              ).toLocaleString()}
+                            </p>
+
+                            <div>
+                              <span
+                                className={`rounded-md px-2.5 py-1 text-xs font-semibold ${transactionStatusStyle(
+                                  payout.status,
+                                )}`}
+                              >
+                                {formatStatus(
+                                  payout.status,
                                 )}
-                              </p>
+                              </span>
+                            </div>
+
+                            <p className="text-sm text-zinc-500">
+                              {payout.createdAt.toLocaleDateString()}
+                            </p>
+
+                            <div className="text-right">
+                              {payout.status ===
+                                "COMPLETED" ? (
+                                <div className="inline-flex flex-col items-end gap-2">
+                                  <p className="max-w-[180px] truncate text-xs font-medium text-zinc-500">
+                                    Ref:{" "}
+                                    {
+                                      reference
+                                    }
+                                  </p>
+
+                                  {payout.receiptPath ? (
+                                    <a
+                                      href={`/settlement-receipts/${payout.id}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-xs font-semibold text-zinc-700 transition hover:bg-zinc-50"
+                                    >
+                                      <FileCheck2 className="h-4 w-4" />
+
+                                      View receipt
+
+                                      <ExternalLink className="h-3.5 w-3.5" />
+                                    </a>
+                                  ) : (
+                                    <span className="text-xs text-zinc-400">
+                                      Receipt unavailable
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-zinc-400">
+                                  —
+                                </span>
+                              )}
                             </div>
                           </div>
-
-                          <p className="truncate text-sm text-zinc-600">
-                            {
-                              payout
-                                .rental
-                                .renter
-                                .name
-                            }
-                          </p>
-
-                          <p className="text-sm font-semibold text-zinc-950">
-                            ฿
-                            {Number(
-                              payout.amount,
-                            ).toLocaleString()}
-                          </p>
-
-                          <div>
-                            <span
-                              className={`rounded-md px-2.5 py-1 text-xs font-semibold ${transactionStatusStyle(
-                                payout.status,
-                              )}`}
-                            >
-                              {formatStatus(
-                                payout.status,
-                              )}
-                            </span>
-                          </div>
-
-                          <p className="text-right text-sm text-zinc-500">
-                            {payout.createdAt.toLocaleDateString()}
-                          </p>
-                        </div>
-                      ),
+                        );
+                      },
                     )}
                   </div>
                 </div>

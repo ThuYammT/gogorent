@@ -3,6 +3,7 @@
 import {
   Activity,
   AlertTriangle,
+  Banknote,
   Bell,
   ClipboardList,
   LayoutDashboard,
@@ -57,6 +58,11 @@ const navigation = [
     label: "Transactions",
     href: "/admin/transactions",
     icon: ReceiptText,
+  },
+  {
+    label: "Payouts",
+    href: "/admin/payouts",
+    icon: Banknote,
   },
   {
     label: "Damage Reports",
@@ -148,7 +154,10 @@ export default function AdminSidebar({
       return openDamageReports;
     }
 
-    if (href === "/admin/notifications") {
+    if (
+      href ===
+      "/admin/notifications"
+    ) {
       return unreadNotifications;
     }
 
@@ -158,7 +167,7 @@ export default function AdminSidebar({
   const sidebarContent = (
     <div className="flex h-full flex-col">
       {/* BRAND */}
-      <div className="flex h-20 items-center justify-between border-b border-white/10 px-6">
+      <div className="flex h-[72px] shrink-0 items-center justify-between border-b border-white/10 px-5">
         <Link
           href="/admin/dashboard"
           onClick={() =>
@@ -194,14 +203,14 @@ export default function AdminSidebar({
       </div>
 
       {/* SECTION LABEL */}
-      <div className="px-5 pb-2 pt-6">
-        <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
+      <div className="shrink-0 px-4 pb-1 pt-4">
+        <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500">
           Platform management
         </p>
       </div>
 
       {/* NAVIGATION */}
-      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {navigation.map(
           (item) => {
             const Icon =
@@ -230,7 +239,7 @@ export default function AdminSidebar({
                     false,
                   )
                 }
-                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition ${
+                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition ${
                   active
                     ? "bg-white text-zinc-950"
                     : "text-zinc-400 hover:bg-white/10 hover:text-white"
@@ -244,8 +253,7 @@ export default function AdminSidebar({
                   }
                 </span>
 
-                {badge >
-                  0 && (
+                {badge > 0 && (
                   <span
                     className={`flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-bold ${
                       active
@@ -265,13 +273,13 @@ export default function AdminSidebar({
       </nav>
 
       {/* BOTTOM */}
-      <div className="border-t border-white/10 p-4">
+      <div className="shrink-0 border-t border-white/10 p-3">
         <Link
           href="/"
           onClick={() =>
             setMobileOpen(false)
           }
-          className="mb-3 flex items-center gap-3 rounded-lg border border-white/10 px-3 py-2.5 text-sm font-medium text-zinc-300 transition hover:bg-white/10 hover:text-white"
+          className="mb-2 flex items-center gap-3 rounded-lg border border-white/10 px-3 py-2 text-sm font-medium text-zinc-300 transition hover:bg-white/10 hover:text-white"
         >
           <Store className="h-[18px] w-[18px]" />
 
@@ -279,8 +287,8 @@ export default function AdminSidebar({
         </Link>
 
         {/* ADMIN ACCOUNT */}
-        <div className="flex items-center gap-3 rounded-xl bg-white/5 p-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+        <div className="flex items-center gap-3 rounded-xl bg-white/5 p-2.5">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
             {getInitials(
               admin.name,
             )}
@@ -298,15 +306,16 @@ export default function AdminSidebar({
           </div>
         </div>
 
+        {/* LOGOUT */}
         <form
           action={
             logoutAction
           }
-          className="mt-3"
+          className="mt-2"
         >
           <button
             type="submit"
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-zinc-400 transition hover:bg-red-500/10 hover:text-red-400"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-zinc-400 transition hover:bg-red-500/10 hover:text-red-400"
           >
             <LogOut className="h-[18px] w-[18px]" />
 
@@ -342,10 +351,8 @@ export default function AdminSidebar({
         >
           <Menu className="h-5 w-5" />
 
-          {(pendingListings >
-            0 ||
-            openDamageReports >
-              0 ||
+          {(pendingListings > 0 ||
+            openDamageReports > 0 ||
             unreadNotifications >
               0) && (
             <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white" />

@@ -236,6 +236,7 @@ async function DamageReportsContent({
           select: {
             name: true,
             email: true,
+            role: true,
           },
         },
 
@@ -532,13 +533,30 @@ async function DamageReportsContent({
                               <div className="mt-3 flex items-center gap-2 text-sm text-zinc-600">
                                 <UserRound className="h-4 w-4 text-zinc-400" />
 
-                                Reported by{" "}
-                                <span className="font-medium text-zinc-900">
-                                  {
+                                <span className="text-zinc-500">
+                                  Reported by{" "}
+                                  <span className="font-medium text-zinc-900">
+                                    {
+                                      report
+                                        .reporter
+                                        .name
+                                    }
+                                  </span>
+                                </span>
+
+                                <span
+                                  className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
                                     report
                                       .reporter
-                                      .name
-                                  }
+                                      .role ===
+                                    "RENTER"
+                                      ? "bg-blue-50 text-blue-700"
+                                      : "bg-orange-50 text-orange-700"
+                                  }`}
+                                >
+                                  {report
+                                    .reporter
+                                    .role}
                                 </span>
                               </div>
                             </div>

@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 import {
   Bell,
+  CreditCard,
   Heart,
   LayoutDashboard,
   ShoppingBag,
@@ -26,6 +27,11 @@ const items = [
     label: "Saved",
     href: "/renter/favorites",
     icon: Heart,
+  },
+  {
+    label: "Refund settings",
+    href: "/renter/refund-settings",
+    icon: CreditCard,
   },
   {
     label: "Notifications",

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   Bell,
   CalendarDays,
+  CreditCard,
   Heart,
   LayoutDashboard,
   LogOut,
@@ -43,6 +44,11 @@ const navItems = [
     label: "Saved devices",
     href: "/renter/favorites",
     icon: Heart,
+  },
+  {
+    label: "Refund settings",
+    href: "/renter/refund-settings",
+    icon: CreditCard,
   },
   {
     label: "Notifications",

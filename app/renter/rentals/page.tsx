@@ -1,32 +1,79 @@
+import {
+  Suspense,
+} from "react";
+
 import Link from "next/link";
-import { Suspense } from "react";
 
 import {
-  Bell,
   CalendarDays,
-  ChevronRight,
-  X,
+  Clock3,
+  MapPin,
+  Package,
+  Receipt,
 } from "lucide-react";
 
 import {
-  cancelRenterBooking,
-} from "./actions";
+  prisma,
+} from "@/lib/prisma";
 
-import { prisma } from "@/lib/prisma";
-import { requireRenter } from "@/lib/session";
+import {
+  requireRenter,
+} from "@/lib/session";
+
+type RentalsPageProps = {
+  searchParams: Promise<{
+    status?: string;
+  }>;
+};
+
+const filters = [
+  {
+    label: "All",
+    value: "ALL",
+  },
+  {
+    label: "Requested",
+    value: "REQUESTED",
+  },
+  {
+    label: "Approved",
+    value: "APPROVED",
+  },
+  {
+    label: "Active",
+    value: "ACTIVE",
+  },
+  {
+    label: "Returned",
+    value: "RETURNED",
+  },
+  {
+    label: "Completed",
+    value: "COMPLETED",
+  },
+  {
+    label: "Cancelled",
+    value: "CANCELLED",
+  },
+];
 
 function statusStyle(
   status: string,
 ) {
   switch (status) {
+    case "REQUESTED":
+      return "bg-amber-50 text-amber-700";
+
     case "APPROVED":
       return "bg-indigo-50 text-indigo-700";
 
     case "ACTIVE":
       return "bg-blue-50 text-blue-700";
 
-    case "COMPLETED":
     case "RETURNED":
+      return "bg-amber-50 text-amber-700";
+
+    case "COMPLETED":
       return "bg-emerald-50 text-emerald-700";
 
     case "REJECTED":
@@ -35,266 +82,434 @@ function statusStyle(
     case "CANCELLED":
       return "bg-zinc-100 text-zinc-600";
 
+    case "DISPUTED":
+      return "bg-orange-50 text-orange-700";
+
     default:
-      return "bg-amber-50 text-amber-700";
+      return "bg-zinc-100 text-zinc-600";
   }
 }
 
-async function RenterRentalsContent({
+function formatStatus(
+  status: string,
+) {
+  return status
+    .replaceAll("_", " ")
+    .toLowerCase()
+    .replace(
+      /\b\w/g,
+      (letter) =>
+        letter.toUpperCase(),
+    );
+}
+
+async function RentalsContent({
   searchParams,
-}: {
-  searchParams: Promise<{
-    created?: string;
-  }>;
-}) {
+}: RentalsPageProps) {
   const renter =
     await requireRenter();
 
   const params =
     await searchParams;
 
-  const [
-    rentals,
-    newRequest,
-  ] = await Promise.all([
-    prisma.rental.findMany({
+  const selectedStatus =
+    filters.some(
+      (filter) =>
+        filter.value ===
+        params.status,
+    )
+      ? params.status!
+      : "ALL";
+
+  const rentals =
+    await prisma.rental.findMany({
       where: {
-        renterId: renter.id,
+        renterId:
+          renter.id,
+
+        ...(selectedStatus !==
+        "ALL"
+          ? {
+              status:
+                selectedStatus as
+                  | "REQUESTED"
+                  | "APPROVED"
+                  | "ACTIVE"
+                  | "RETURNED"
+                  | "COMPLETED"
+                  | "CANCELLED",
+            }
+          : {}),
       },
+
       include: {
         device: {
-          select: {
-            name: true,
-            emoji: true,
-          },
-        },
-        collectionIssues: {
-          where: { status: { in: ["OPEN", "PROPOSED"] } },
-          select: { id: true },
-          take: 1,
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    }),
+          include: {
+            images: {
+              orderBy: [
+                {
+                  isPrimary:
+                    "desc",
+                },
+                {
+                  createdAt:
+                    "asc",
+                },
+              ],
 
-    params.created
-      ? prisma.rental.findFirst({
+              take: 1,
+            },
+          },
+        },
+
+        transactions: {
           where: {
-            id: params.created,
-            renterId:
-              renter.id,
+            type: {
+              in: [
+                "RENTAL_PAYMENT",
+                "DEPOSIT_HOLD",
+                "DEPOSIT_REFUND",
+              ],
+            },
           },
+
           select: {
-            id: true,
+            type: true,
+            status: true,
+            paymentRef: true,
           },
-        })
-      : Promise.resolve(null),
-  ]);
+        },
+      },
+
+      orderBy: {
+        createdAt:
+          "desc",
+      },
+    });
 
   return (
-    <main className="p-5 md:p-8 lg:p-10">
-      <div className="mx-auto max-w-7xl">
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-          <div>
-            <p className="text-sm font-semibold text-amber-600">
-              Rental management
-            </p>
+    <>
+      {/* HEADER */}
+      <header className="border-b border-zinc-200 bg-white px-6 py-8 md:px-10 xl:px-12">
+        <div className="mx-auto max-w-[1400px]">
+          <p className="text-sm font-medium text-zinc-500">
+            Rental activity
+          </p>
 
-            <h1 className="mt-1 text-3xl font-bold tracking-tight text-zinc-950">
-              My bookings
-            </h1>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950">
+            My bookings
+          </h1>
 
-            <p className="mt-2 text-sm text-zinc-500">
-              Track requests, approved
-              rentals and your rental
-              history.
-            </p>
-          </div>
-
-          <Link
-            href="/renter/notifications"
-            className="inline-flex w-fit items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-700 shadow-sm hover:bg-zinc-50"
-          >
-            <Bell className="h-4 w-4" />
-            Notifications
-          </Link>
+          <p className="mt-2 text-sm text-zinc-500">
+            Track your requests, payments, active rentals and completed bookings.
+          </p>
         </div>
+      </header>
 
-        {newRequest && (
-          <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
-            Your booking request was
-            sent successfully. The owner
-            will review it next.
+      <main className="mx-auto max-w-[1400px] px-6 py-8 md:px-10 xl:px-12">
+        {/* FILTERS */}
+        <section className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+          <div className="flex gap-1 overflow-x-auto px-5 py-3">
+            {filters.map(
+              (filter) => {
+                const href =
+                  filter.value ===
+                  "ALL"
+                    ? "/renter/rentals"
+                    : `/renter/rentals?status=${filter.value}`;
+
+                return (
+                  <Link
+                    key={
+                      filter.value
+                    }
+                    href={
+                      href
+                    }
+                    className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${
+                      selectedStatus ===
+                      filter.value
+                        ? "bg-zinc-950 text-white"
+                        : "text-zinc-500 hover:bg-zinc-100"
+                    }`}
+                  >
+                    {
+                      filter.label
+                    }
+                  </Link>
+                );
+              },
+            )}
           </div>
-        )}
+        </section>
 
-        {rentals.length === 0 ? (
-          <section className="mt-8 rounded-2xl border border-zinc-200 bg-white px-6 py-16 text-center shadow-sm">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100">
-              <CalendarDays className="h-6 w-6 text-zinc-400" />
-            </div>
+        {rentals.length ===
+        0 ? (
+          <section className="mt-6 rounded-2xl border border-zinc-200 bg-white px-6 py-20 text-center">
+            <Package className="mx-auto h-9 w-9 text-zinc-300" />
 
             <h2 className="mt-4 font-semibold text-zinc-900">
-              No bookings yet
+              No bookings found
             </h2>
 
-            <p className="mt-1 text-sm text-zinc-500">
-              Your rental requests will
-              appear here.
+            <p className="mt-2 text-sm text-zinc-500">
+              {selectedStatus ===
+              "ALL"
+                ? "Your rental bookings will appear here."
+                : "No bookings match this status."}
             </p>
 
             <Link
               href="/devices"
-              className="mt-6 inline-flex rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white"
+              className="mt-5 inline-flex rounded-xl bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
             >
-              Browse devices
+              Browse marketplace
             </Link>
           </section>
         ) : (
-          <section className="mt-8 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
-            {/* Desktop headings */}
-            <div className="hidden grid-cols-[minmax(0,1.5fr)_1fr_120px_210px] gap-6 border-b border-zinc-100 bg-zinc-50/70 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 md:grid">
-              <div>Device</div>
-              <div>Rental period</div>
-              <div>Status</div>
-              <div className="text-right">
-                Actions
-              </div>
+          <section className="mt-6 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+            {/* DESKTOP HEADER */}
+            <div className="hidden grid-cols-[2fr_1.3fr_1.3fr_1fr_1fr] border-b border-zinc-100 bg-zinc-50 px-6 py-3 text-xs font-semibold uppercase tracking-wide text-zinc-500 lg:grid">
+              <span>
+                Device
+              </span>
+
+              <span>
+                Dates
+              </span>
+
+              <span>
+                Location
+              </span>
+
+              <span>
+                Amount
+              </span>
+
+              <span className="text-right">
+                Status
+              </span>
             </div>
 
             <div className="divide-y divide-zinc-100">
               {rentals.map(
-                (rental) => (
-                  <article
-                    key={
-                      rental.id
-                    }
-                    id={
-                      rental.id
-                    }
-                    className="grid gap-4 p-5 md:grid-cols-[minmax(0,1.5fr)_1fr_120px_210px] md:items-center md:gap-6"
-                  >
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-xl">
-                        {rental
-                          .device
-                          .emoji ??
-                          "📦"}
+                (rental) => {
+                  const image =
+                    rental.device
+                      .images[0];
+
+                  const paymentComplete =
+                    rental.transactions.some(
+                      (
+                        transaction,
+                      ) =>
+                        transaction.type ===
+                          "RENTAL_PAYMENT" &&
+                        transaction.status ===
+                          "COMPLETED",
+                    ) &&
+                    rental.transactions.some(
+                      (
+                        transaction,
+                      ) =>
+                        transaction.type ===
+                          "DEPOSIT_HOLD" &&
+                        transaction.status ===
+                          "COMPLETED",
+                    );
+
+                  const refund =
+                    rental.transactions.find(
+                      (
+                        transaction,
+                      ) =>
+                        transaction.type ===
+                        "DEPOSIT_REFUND",
+                    );
+
+                  return (
+                    <Link
+                      key={
+                        rental.id
+                      }
+                      href={`/renter/rentals/${rental.id}`}
+                      className="grid gap-5 px-6 py-5 transition hover:bg-zinc-50 lg:grid-cols-[2fr_1.3fr_1.3fr_1fr_1fr] lg:items-center"
+                    >
+                      {/* DEVICE */}
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-xl bg-zinc-100">
+                          {image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={
+                                image.url
+                              }
+                              alt={
+                                rental
+                                  .device
+                                  .name
+                              }
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xl">
+                              {rental
+                                .device
+                                .emoji ??
+                                "📦"}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-zinc-900">
+                            {
+                              rental
+                                .device
+                                .name
+                            }
+                          </p>
+
+                          <p className="mt-1 text-xs text-zinc-400">
+                            Booking #
+                            {rental.id.slice(
+                              -6,
+                            )}
+                          </p>
+                        </div>
                       </div>
 
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-zinc-900">
-                          {
-                            rental
-                              .device
-                              .name
-                          }
-                        </p>
+                      {/* DATES */}
+                      <div className="flex gap-2">
+                        <CalendarDays className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
 
-                        <p className="mt-1 text-xs text-zinc-400">
-                          Booking #
-                          {rental.id.slice(
-                            -6,
-                          )}
+                        <div>
+                          <p className="text-sm text-zinc-700">
+                            {rental.startDate.toLocaleDateString()}
+                            {" "}–{" "}
+                            {rental.endDate.toLocaleDateString()}
+                          </p>
+
+                          <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">
+                            <Clock3 className="h-3 w-3" />
+
+                            {
+                              rental.totalDays
+                            }{" "}
+                            {rental.totalDays ===
+                            1
+                              ? "day"
+                              : "days"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* LOCATION */}
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 shrink-0 text-zinc-400" />
+
+                        <p className="truncate text-sm text-zinc-600">
+                          {rental
+                            .device
+                            .location ??
+                            "Not specified"}
                         </p>
                       </div>
-                    </div>
 
-                    <div>
-                      <p className="text-sm font-medium text-zinc-700">
-                        {rental.startDate.toLocaleDateString()}{" "}
-                        –{" "}
-                        {rental.endDate.toLocaleDateString()}
-                      </p>
+                      {/* AMOUNT */}
+                      <div>
+                        <p className="text-sm font-semibold text-zinc-950">
+                          ฿
+                          {Number(
+                            rental.rentalAmount,
+                          ).toLocaleString()}
+                        </p>
 
-                      <p className="mt-1 text-xs text-zinc-400">
-                        {
-                          rental.totalDays
-                        }{" "}
-                        {rental.totalDays ===
-                        1
-                          ? "day"
-                          : "days"}
-                      </p>
-                    </div>
+                        <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400">
+                          <Receipt className="h-3 w-3" />
 
-                    <div>
-                      <span
-                        className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusStyle(
-                          rental.status,
-                        )}`}
-                      >
-                        {rental.status.replaceAll(
-                          "_",
-                          " ",
-                        )}
-                      </span>
-                    </div>
+                          + ฿
+                          {Number(
+                            rental.depositAmount,
+                          ).toLocaleString()}{" "}
+                          deposit
+                        </p>
+                      </div>
 
-                    <div className="flex flex-wrap justify-start gap-2 md:justify-end">
-                      <Link
-                        href={`/renter/rentals/${rental.id}`}
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-xs font-semibold text-zinc-700 hover:bg-zinc-50"
-                      >
-                        {rental.status ===
-                        "APPROVED"
-                          ? "View / scan QR"
-                          : "View"}
-
-                        <ChevronRight className="h-3.5 w-3.5" />
-                      </Link>
-
-                      {[
-                        "REQUESTED",
-                        "APPROVED",
-                      ].includes(
-                        rental.status,
-                      ) && rental.collectionIssues.length === 0 && (
-                        <form
-                          action={cancelRenterBooking.bind(
-                            null,
-                            rental.id,
-                          )}
+                      {/* STATUS */}
+                      <div className="lg:text-right">
+                        <span
+                          className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${statusStyle(
+                            rental.status,
+                          )}`}
                         >
-                          <button
-                            type="submit"
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-red-100 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                            Cancel
-                          </button>
-                        </form>
-                      )}
-                    </div>
-                  </article>
-                ),
+                          {formatStatus(
+                            rental.status,
+                          )}
+                        </span>
+
+                        {rental.status ===
+                          "APPROVED" && (
+                          <div className="mt-2">
+                            {paymentComplete ? (
+                              <span className="text-xs font-semibold text-emerald-700">
+                                Payment completed
+                              </span>
+                            ) : (
+                              <span className="text-xs font-semibold text-amber-700">
+                                Payment required
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {rental.status ===
+                          "RETURNED" && (
+                          <p className="mt-2 text-xs font-medium text-amber-700">
+                            {refund?.status ===
+                            "COMPLETED"
+                              ? "Deposit refunded"
+                              : "Settlement pending"}
+                          </p>
+                        )}
+
+                        {rental.status ===
+                          "COMPLETED" && (
+                          <p className="mt-2 text-xs font-medium text-emerald-700">
+                            Settlement completed
+                          </p>
+                        )}
+                      </div>
+                    </Link>
+                  );
+                },
               )}
             </div>
           </section>
         )}
-      </div>
-    </main>
+      </main>
+    </>
+  );
+}
+
+function RentalsLoading() {
+  return (
+    <div className="p-8 md:p-10">
+      <div className="h-[500px] animate-pulse rounded-2xl bg-white" />
+    </div>
   );
 }
 
 export default function RenterRentalsPage({
   searchParams,
-}: {
-  searchParams: Promise<{
-    created?: string;
-  }>;
-}) {
+}: RentalsPageProps) {
   return (
     <Suspense
       fallback={
-        <div className="p-6 text-sm text-zinc-500">
-          Loading bookings...
-        </div>
+        <RentalsLoading />
       }
     >
-      <RenterRentalsContent
+      <RentalsContent
         searchParams={
           searchParams
         }

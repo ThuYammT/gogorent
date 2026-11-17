@@ -113,16 +113,53 @@ model User {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
-  devices       Device[]
-  rentals       Rental[]       @relation("RentalRenter")
-  ownedRentals  Rental[]       @relation("RentalOwner")
-  reviews       Review[]
-  favorites     Favorite[]
-  notifications Notification[]
-  sessions      Session[]
+  devices                    Device[]
+  rentals                    Rental[]                    @relation("RentalRenter")
+  ownedRentals               Rental[]                    @relation("RentalOwner")
+  reviews                    Review[]
+  favorites                  Favorite[]
+  notifications              Notification[]
+  sessions                   Session[]
   handoverVerificationLimits HandoverVerificationLimit[]
-  auditLogs     AuditLog[]
-  damageReports DamageReport[]
+  auditLogs                  AuditLog[]
+  damageReports              DamageReport[]
+  payoutProfile              OwnerPayoutProfile?
+  refundProfile              RenterRefundProfile?
+}
+
+model OwnerPayoutProfile {
+  id      String @id @default(cuid())
+  ownerId String @unique
+
+  method      String
+  accountName String
+
+  bankName      String?
+  accountNumber String?
+  promptPayId   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+}
+
+model RenterRefundProfile {
+  id       String @id @default(cuid())
+  renterId String @unique
+
+  method      String
+  accountName String
+
+  bankName      String?
+  accountNumber String?
+
+  promptPayId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  renter User @relation(fields: [renterId], references: [id], onDelete: Cascade)
 }
 
 model Session {
@@ -167,12 +204,12 @@ model Device {
   owner    User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   category Category @relation(fields: [categoryId], references: [id])
 
-  images        DeviceImage[]
-  rentals       Rental[]
-  reviews       Review[]
-  favorites     Favorite[]
-  notifications Notification[]
-  collectionIssues CollectionIssue[] @relation("IssueDevice")
+  images               DeviceImage[]
+  rentals              Rental[]
+  reviews              Review[]
+  favorites            Favorite[]
+  notifications        Notification[]
+  collectionIssues     CollectionIssue[] @relation("IssueDevice")
   proposedReplacements CollectionIssue[] @relation("IssueReplacement")
 
   @@index([ownerId])
@@ -216,13 +253,13 @@ model Rental {
   renter User   @relation("RentalRenter", fields: [renterId], references: [id])
   owner  User   @relation("RentalOwner", fields: [ownerId], references: [id])
 
-  transactions  Transaction[]
-  damageReports DamageReport[]
-  review        Review?
-  notifications Notification[]
-  handovers     Handover[]
+  transactions               Transaction[]
+  damageReports              DamageReport[]
+  review                     Review?
+  notifications              Notification[]
+  handovers                  Handover[]
   handoverVerificationLimits HandoverVerificationLimit[]
-  collectionIssues CollectionIssue[]
+  collectionIssues           CollectionIssue[]
 
   @@index([deviceId])
   @@index([renterId])
@@ -231,19 +268,19 @@ model Rental {
 }
 
 model CollectionIssue {
-  id                    String                 @id @default(cuid())
+  id                    String                  @id @default(cuid())
   rentalId              String
   deviceId              String
   category              CollectionIssueCategory
   description           String
-  status                CollectionIssueStatus  @default(OPEN)
+  status                CollectionIssueStatus   @default(OPEN)
   proposedOutcome       CollectionIssueOutcome?
   replacementDeviceId   String?
   proposedAt            DateTime?
   resolvedAt            DateTime?
-  paymentReviewRequired Boolean                @default(false)
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
+  paymentReviewRequired Boolean                 @default(false)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
 
   rental            Rental                    @relation(fields: [rentalId], references: [id], onDelete: Cascade)
   device            Device                    @relation("IssueDevice", fields: [deviceId], references: [id])
@@ -254,11 +291,11 @@ model CollectionIssue {
 }
 
 model CollectionIssueEvidence {
-  id        String          @id @default(cuid())
+  id        String   @id @default(cuid())
   issueId   String
-  path      String          @unique
+  path      String   @unique
   mimeType  String
-  createdAt DateTime        @default(now())
+  createdAt DateTime @default(now())
 
   issue CollectionIssue @relation(fields: [issueId], references: [id], onDelete: Cascade)
 
@@ -285,10 +322,10 @@ model Handover {
 }
 
 model HandoverVerificationLimit {
-  rentalId   String
-  userId     String
+  rentalId    String
+  userId      String
   windowStart DateTime
-  attempts   Int
+  attempts    Int
 
   rental Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -297,13 +334,14 @@ model HandoverVerificationLimit {
 }
 
 model Transaction {
-  id         String            @id @default(cuid())
-  rentalId   String
-  type       TransactionType
-  amount     Decimal           @db.Decimal(10, 2)
-  status     TransactionStatus @default(PENDING)
-  paymentRef String?
-  createdAt  DateTime          @default(now())
+  id          String            @id @default(cuid())
+  rentalId    String
+  type        TransactionType
+  amount      Decimal           @db.Decimal(10, 2)
+  status      TransactionStatus @default(PENDING)
+  paymentRef  String?
+  receiptPath String?
+  createdAt   DateTime          @default(now())
 
   rental Rental @relation(fields: [rentalId], references: [id], onDelete: Cascade)
 

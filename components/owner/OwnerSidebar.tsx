@@ -5,6 +5,7 @@ import {
   CircleDollarSign,
   ClipboardList,
   Home,
+  Landmark,
   LogOut,
   Menu,
   Package,
@@ -54,6 +55,14 @@ const navigation = [
     href: "/owner/earnings",
     icon: CircleDollarSign,
   },
+
+  // NEW
+  {
+    label: "Payout Settings",
+    href: "/owner/payout-settings",
+    icon: Landmark,
+  },
+
   {
     label: "Notifications",
     href: "/owner/notifications",

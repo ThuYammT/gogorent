@@ -38,17 +38,59 @@ async function main() {
     { d: mac, start: "2026-11-20", end: "2026-11-22", status: "ACTIVE" as const },
     { d: sony, start: "2026-10-01", end: "2026-10-05", status: "COMPLETED" as const },
   ];
+  
+  let completedRental;
   for (const r of rentals) {
     const days = Math.round((Date.parse(r.end) - Date.parse(r.start)) / 86400000);
     const price = Number(r.d.pricePerDay), deposit = Number(r.d.depositAmount);
-    await prisma.rental.create({
+    const rental = await prisma.rental.create({
       data: { deviceId: r.d.id, renterId: renter.id, ownerId: owner.id,
               startDate: new Date(r.start), endDate: new Date(r.end), totalDays: days,
               pricePerDay: price, rentalAmount: price * days, depositAmount: deposit,
               totalAmount: price * days + deposit, status: r.status },
     });
+    if (r.status === "COMPLETED") {
+      completedRental = rental;
+    }
   }
-  console.log("✅ Added 2 users, 2 devices and 3 rentals");
+
+  // Add sample damage reports
+  if (completedRental) {
+    // Report from renter
+    await prisma.damageReport.create({
+      data: {
+        rentalId: completedRental.id,
+        reporterId: renter.id,
+        status: "OPEN",
+        description: "Device has a small scratch on the lens. Need replacement or repair.",
+        estimatedCost: 150,
+      },
+    });
+
+    // Report from owner
+    await prisma.damageReport.create({
+      data: {
+        rentalId: completedRental.id,
+        reporterId: owner.id,
+        status: "UNDER_REVIEW",
+        description: "Battery not holding charge properly after rental period.",
+        estimatedCost: 200,
+      },
+    });
+
+    // Resolved report
+    await prisma.damageReport.create({
+      data: {
+        rentalId: completedRental.id,
+        reporterId: renter.id,
+        status: "RESOLVED",
+        description: "Minor screen dust - cleaned during inspection.",
+        estimatedCost: 0,
+      },
+    });
+  }
+
+  console.log("✅ Added 2 users, 2 devices, 3 rentals, and 3 damage reports");
 }
 
 main().catch((e) => { console.error("❌", e.message); process.exit(1); })

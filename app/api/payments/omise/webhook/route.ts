@@ -15,9 +15,6 @@ import {
   syncPromptPayCharge,
 } from "@/lib/promptpay-payment";
 
-export const runtime =
-  "nodejs";
-
 function verifySignature(
   rawBody: string,
   signatureHeader: string,

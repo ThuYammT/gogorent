@@ -340,7 +340,7 @@ async function DashboardContent() {
   return (
     <>
       {/* HEADER */}
-      <header className="border-b border-zinc-200 bg-white px-6 py-8 md:px-10 xl:px-12">
+      <header className="portal-dashboard-header border-b border-zinc-200 bg-white px-6 py-8 md:px-10 xl:px-12">
         <div className="mx-auto flex w-full max-w-[1500px] flex-col justify-between gap-5 md:flex-row md:items-center">
           <div>
             <p className="text-sm font-medium text-zinc-500">
@@ -349,7 +349,7 @@ async function DashboardContent() {
 
             <h1 className="mt-1 text-3xl font-semibold tracking-tight text-zinc-950 md:text-4xl">
               Welcome back,{" "}
-              {owner.name}
+              <span className="portal-serif">{owner.name}</span>
             </h1>
 
             <p className="mt-2 text-sm text-zinc-500">
@@ -383,7 +383,7 @@ async function DashboardContent() {
                   key={
                     stat.label
                   }
-                  className="rounded-2xl border border-zinc-200 bg-white p-6"
+                  className="portal-stat rounded-2xl border border-zinc-200 bg-white p-6"
                 >
                   <div className="flex items-start justify-between">
                     <div>

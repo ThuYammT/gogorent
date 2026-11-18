@@ -4,6 +4,7 @@ import {
 } from "react";
 
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import "@/components/portal/portal.css";
 
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/admin-auth";
@@ -53,7 +54,7 @@ async function AdminShell({
     ]);
 
   return (
-    <div className="min-h-screen bg-[#f6f7f9]">
+    <div className="portal-shell portal-admin">
       <AdminSidebar
         admin={{
           name:
@@ -75,7 +76,7 @@ async function AdminShell({
         }
       />
 
-      <main className="min-h-screen lg:pl-64">
+      <main id="portal-content" className="portal-content" tabIndex={-1}>
         {
           children
         }
@@ -94,9 +95,9 @@ function AdminLayoutLoading({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#f6f7f9]">
+    <div className="portal-shell portal-admin">
       {/* DESKTOP SIDEBAR */}
-      <aside className="fixed inset-y-0 left-0 hidden w-64 bg-[#111214] lg:block">
+      <aside className="portal-loading-sidebar fixed inset-y-0 left-0 hidden w-64 lg:block">
         <div className="h-20 border-b border-white/10 px-6 py-6">
           <div className="h-6 w-32 animate-pulse rounded bg-white/10" />
         </div>
@@ -122,7 +123,7 @@ function AdminLayoutLoading({
         <div className="h-10 w-10 animate-pulse rounded-lg bg-zinc-100" />
       </div>
 
-      <main className="min-h-screen lg:pl-64">
+      <main id="portal-content" className="portal-content" tabIndex={-1}>
         {
           children
         }

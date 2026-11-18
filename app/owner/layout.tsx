@@ -4,6 +4,7 @@ import {
 } from "react";
 
 import OwnerSidebar from "@/components/owner/OwnerSidebar";
+import "@/components/portal/portal.css";
 
 import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/session";
@@ -39,7 +40,7 @@ async function OwnerShell({
     });
 
   return (
-    <div className="min-h-screen bg-[#f6f7f9]">
+    <div className="portal-shell portal-owner">
       <OwnerSidebar
         owner={{
           name:
@@ -55,7 +56,7 @@ async function OwnerShell({
         }
       />
 
-      <main className="min-h-screen lg:pl-64">
+      <main id="portal-content" className="portal-content" tabIndex={-1}>
         {children}
       </main>
     </div>
@@ -72,9 +73,9 @@ function OwnerLayoutLoading({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-[#f6f7f9]">
+    <div className="portal-shell portal-owner">
       {/* DESKTOP SIDEBAR PLACEHOLDER */}
-      <aside className="fixed inset-y-0 left-0 hidden w-64 bg-[#111214] lg:block">
+      <aside className="portal-loading-sidebar fixed inset-y-0 left-0 hidden w-64 lg:block">
         <div className="h-20 border-b border-white/10 px-6 py-6">
           <div className="h-6 w-28 animate-pulse rounded bg-white/10" />
         </div>
@@ -101,7 +102,7 @@ function OwnerLayoutLoading({
       </div>
 
       {/* PAGE */}
-      <main className="min-h-screen lg:pl-64">
+      <main id="portal-content" className="portal-content" tabIndex={-1}>
         {children}
       </main>
     </div>

@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async headers() {
+    return [{ source: "/tab-sessions.js", headers: [
+      { key: "Cache-Control", value: "no-store" },
+      { key: "Service-Worker-Allowed", value: "/" },
+    ] }];
+  },
   experimental: {
     agentFeedback: true,
 

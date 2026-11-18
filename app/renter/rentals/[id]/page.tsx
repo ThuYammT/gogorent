@@ -598,7 +598,6 @@ async function RenterBookingContent({
                     {depositRefund.receiptPath && (
                       <a
                         href={`/settlement-receipts/${depositRefund.id}`}
-                        target="_blank"
                         rel="noreferrer"
                         className="mt-3 inline-flex items-center gap-2 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50"
                       >
@@ -658,7 +657,6 @@ async function RenterBookingContent({
                         {depositRefund.receiptPath ? (
                           <a
                             href={`/settlement-receipts/${depositRefund.id}`}
-                            target="_blank"
                             rel="noreferrer"
                             className="mt-4 inline-flex items-center gap-2 rounded-lg bg-zinc-950 px-4 py-2.5 text-sm font-semibold text-white hover:bg-zinc-800"
                           >

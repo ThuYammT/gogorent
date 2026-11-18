@@ -1,8 +1,9 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import { prisma } from "@/lib/prisma";
 import { hashSessionToken, newSessionToken } from "@/lib/session-token";
+import { TAB_SESSION_HEADER, tabSessionCookie } from "@/lib/tab-session";
 
 export type GoGoRentSession = {
   userId: string;
@@ -11,10 +12,15 @@ export type GoGoRentSession = {
   email: string;
 };
 
-const SESSION_COOKIE = "gogorent_session";
 const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7;
 
+async function currentSessionCookie() {
+  return tabSessionCookie((await headers()).get(TAB_SESSION_HEADER));
+}
+
 export async function createSession(userId: string) {
+  const sessionCookie = await currentSessionCookie();
+  if (!sessionCookie) throw new Error("This tab is still starting. Reload the login page and try again.");
   const token = newSessionToken();
   const tokenHash = hashSessionToken(token);
   if (!tokenHash) {
@@ -22,12 +28,15 @@ export async function createSession(userId: string) {
   }
   const expiresAt = new Date(Date.now() + SESSION_DURATION_SECONDS * 1000);
 
+  const cookieStore = await cookies();
+  const previousToken = cookieStore.get(sessionCookie)?.value;
+  const previousHash = previousToken ? hashSessionToken(previousToken) : null;
+  if (previousHash) await prisma.session.deleteMany({ where: { tokenHash: previousHash } });
   await prisma.session.create({
     data: { tokenHash, userId, expiresAt },
   });
 
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, {
+  cookieStore.set(sessionCookie, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -37,20 +46,24 @@ export async function createSession(userId: string) {
 }
 
 export async function deleteSession() {
+  const sessionCookie = await currentSessionCookie();
+  if (!sessionCookie) return;
   const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const token = cookieStore.get(sessionCookie)?.value;
   const tokenHash = token ? hashSessionToken(token) : null;
 
   if (tokenHash) {
     await prisma.session.deleteMany({ where: { tokenHash } });
   }
 
-  cookieStore.delete(SESSION_COOKIE);
+  cookieStore.delete(sessionCookie);
 }
 
 export async function getSession(): Promise<GoGoRentSession | null> {
+  const sessionCookie = await currentSessionCookie();
+  if (!sessionCookie) return null;
   const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const token = cookieStore.get(sessionCookie)?.value;
   const tokenHash = token ? hashSessionToken(token) : null;
   if (!tokenHash) {
     return null;

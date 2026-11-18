@@ -209,7 +209,8 @@ async function DashboardContent() {
           </h1>
 
           <p className="mt-2 text-sm text-zinc-500">
-            Monitor users, listings, rentals and platform activity.
+            Monitor users, listings, rentals and platform activity.{" "}
+            <Link href="/admin/categories" className="font-semibold text-zinc-950 underline">Manage categories</Link>
           </p>
         </div>
       </header>

@@ -6,7 +6,7 @@ let actor = { userId: "renter", role: "RENTER" };
 let rentalStatus = "APPROVED";
 let handoverStatus = "QR_SCANNED";
 let scannedAt: Date | null = new Date();
-let hasPayment = false;
+let paidTypes = ["RENTAL_PAYMENT", "DEPOSIT_HOLD"];
 let deviceStatus = "UNAVAILABLE";
 let deviceCondition = "GOOD";
 let openIssue = false;
@@ -48,10 +48,9 @@ const tx = {
     update: async ({ data }: { data: { status: string } }) => { deviceStatus = data.status; },
   },
   transaction: {
-    findFirst: async () => hasPayment ? { id: "payment" } : null,
+    findMany: async () => paidTypes.map(type => ({ type })),
     create: async ({ data }: { data: { type: string; amount: string; status: string } }) => {
       payments.push(data);
-      hasPayment = true;
     },
   },
   auditLog: {
@@ -89,7 +88,7 @@ function reset() {
   rentalStatus = "APPROVED";
   handoverStatus = "QR_SCANNED";
   scannedAt = new Date();
-  hasPayment = false;
+  paidTypes = ["RENTAL_PAYMENT", "DEPOSIT_HOLD"];
   deviceStatus = "UNAVAILABLE";
   deviceCondition = "GOOD";
   openIssue = false;
@@ -100,7 +99,7 @@ function reset() {
   audits.length = 0;
 }
 
-test("renter confirmation activates the rental and creates one pending total payment", async () => {
+test("paid renter confirmation activates the rental without creating another payment", async () => {
   reset();
   await confirmCollection("booking", "GOOD");
   assert.equal(handoverStatus, "VERIFIED");
@@ -108,10 +107,7 @@ test("renter confirmation activates the rental and creates one pending total pay
   assert.equal(deviceStatus, "RENTED");
   assert.ok(pickedUpAt instanceof Date);
   assert.equal(renterConfirmedAt, pickedUpAt);
-  assert.equal(payments.length, 1);
-  assert.equal(payments[0].type, "RENTAL_PAYMENT");
-  assert.equal(payments[0].amount, "1250.00");
-  assert.equal(payments[0].status, "PENDING");
+  assert.equal(payments.length, 0);
   assert.equal(audits[0].action, "COLLECTION_CONFIRMED");
   assert.deepEqual(JSON.parse(audits[0].details), { condition: "GOOD", received: true });
   assert.equal(notifications.length, 1);
@@ -119,7 +115,7 @@ test("renter confirmation activates the rental and creates one pending total pay
   assert.equal(notifications[0].type, "COLLECTION_CONFIRMED");
 
   await assert.rejects(confirmCollection("booking", "GOOD"), /not awaiting collection confirmation/);
-  assert.equal(payments.length, 1);
+  assert.equal(payments.length, 0);
 });
 
 test("only the booked renter can confirm an approved, scanned collection", async () => {
@@ -142,10 +138,12 @@ test("only the booked renter can confirm an approved, scanned collection", async
   assert.equal(deviceStatus, "UNAVAILABLE");
 });
 
-test("does not create another payment when a payment record already exists", async () => {
+test("unpaid or partially paid bookings cannot activate collection", async () => {
   reset();
-  hasPayment = true;
-  await assert.rejects(confirmCollection("booking", "GOOD"), /payment record already exists/);
+  for (const types of [[], ["RENTAL_PAYMENT"], ["DEPOSIT_HOLD"]]) {
+    paidTypes = types;
+    await assert.rejects(confirmCollection("booking", "GOOD"), /must complete the PromptPay payment/);
+  }
   assert.equal(rentalStatus, "APPROVED");
   assert.equal(handoverStatus, "QR_SCANNED");
   assert.equal(payments.length, 0);

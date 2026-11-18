@@ -21,8 +21,7 @@ async function NewDeviceContent() {
         </h1>
 
         <p className="mt-2 text-sm text-zinc-500">
-          At least one device category must
-          exist before creating a listing.
+          An administrator needs to create a category before you can list an item. Please contact the platform administrator.
         </p>
       </div>
     );

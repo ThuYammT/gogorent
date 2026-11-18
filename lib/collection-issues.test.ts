@@ -7,9 +7,12 @@ let issue: {
   id: string; deviceId: string; status: string; proposedOutcome: string | null;
   replacementDeviceId: string | null; proposedAt: Date | null; paymentReviewRequired: boolean;
 } | null;
-let rental: { id: string; renterId: string; ownerId: string; deviceId: string; status: string; totalAmount: string };
+let rental: { id: string; renterId: string; ownerId: string; deviceId: string; status: string; totalAmount: string; depositAmount: string };
 let replacementAvailable: boolean;
 let hasPayment: boolean;
+let paidTypes: string[];
+let refundCreated: Record<string, unknown> | null;
+let refundedTypes: string[];
 let resetHandover: Record<string, unknown> | null;
 let notifications: { userId: string; type: string }[];
 
@@ -39,7 +42,16 @@ const tx = {
   handover: {
     updateMany: async ({ data }: { data: Record<string, unknown> }) => { resetHandover = data; },
   },
-  transaction: { findFirst: async () => hasPayment ? { id: "payment" } : null },
+  transaction: {
+    findMany: async () => paidTypes.map(type => ({ type })),
+    findFirst: async ({ where }: { where: { type: string } }) =>
+      where.type === "DEPOSIT_REFUND" ? refundCreated : hasPayment ? { id: where.type } : null,
+    updateMany: async ({ where, data }: { where: { type: string }; data: { status: string } }) => {
+      if (data.status === "REFUNDED") refundedTypes.push(where.type);
+      return { count: 1 };
+    },
+    create: async ({ data }: { data: Record<string, unknown> }) => { refundCreated = data; },
+  },
   user: { findMany: async () => [{ id: "admin" }] },
   notification: {
     create: async ({ data }: { data: { userId: string; type: string } }) => { notifications.push(data); },
@@ -69,10 +81,13 @@ after(() => {
 
 beforeEach(() => {
   actor = { userId: "renter", role: "RENTER" };
-  rental = { id: "booking", renterId: "renter", ownerId: "owner", deviceId: "faulty", status: "APPROVED", totalAmount: "1250" };
+  rental = { id: "booking", renterId: "renter", ownerId: "owner", deviceId: "faulty", status: "APPROVED", totalAmount: "1250", depositAmount: "250" };
   issue = null;
   replacementAvailable = true;
-  hasPayment = false;
+  hasPayment = true;
+  paidTypes = ["RENTAL_PAYMENT", "DEPOSIT_HOLD"];
+  refundCreated = null;
+  refundedTypes = [];
   resetHandover = null;
   notifications = [];
 });
@@ -134,12 +149,40 @@ test("replacement is reserved only on acceptance and requires a fresh QR", async
   assert.equal((resetHandover!.expiresAt as Date).getTime(), 0);
 });
 
-test("agreed cancellation flags transactions and notifies admins without changing them", async () => {
+test("agreed demo cancellation records a simulated refund and invalidates collection", async () => {
   await report();
   await propose("CANCEL");
   hasPayment = true;
   await respond("CANCEL", true);
   assert.equal(rental.status, "CANCELLED");
-  assert.equal(issue!.paymentReviewRequired, true);
-  assert.ok(notifications.some((n) => n.userId === "admin" && n.type === "COLLECTION_ISSUE_PAYMENT_REVIEW"));
+  assert.equal(issue!.paymentReviewRequired, false);
+  assert.deepEqual(refundedTypes, ["RENTAL_PAYMENT", "DEPOSIT_HOLD"]);
+  assert.equal(refundCreated!.type, "DEPOSIT_REFUND");
+  assert.equal(refundCreated!.amount, "250");
+  assert.equal(refundCreated!.status, "COMPLETED");
+  assert.equal(refundCreated!.paymentRef, "SIMULATED-COLLECTION-CANCEL-booking");
+  assert.equal(resetHandover!.status, "INITIATED");
+  assert.ok(notifications.some((n) => n.userId === "renter" && n.type === "BOOKING_REFUNDED"));
+  await assert.rejects(respond("CANCEL", true), /not available/);
+});
+
+test("reporting requires both completed rental payment and deposit", async () => {
+  for (const types of [[], ["RENTAL_PAYMENT"], ["DEPOSIT_HOLD"]]) {
+    paidTypes = types;
+    await assert.rejects(report(), /Complete the PromptPay payment/);
+    assert.equal(issue, null);
+    assert.equal(notifications.length, 0);
+  }
+});
+
+test("accepting a repair keeps payment and forces a fresh collection QR", async () => {
+  await report();
+  await propose("REPAIR");
+  await respond("REPAIR", true);
+  assert.equal(issue!.status, "RESOLVED");
+  assert.equal(rental.status, "APPROVED");
+  assert.equal(resetHandover!.status, "INITIATED");
+  assert.equal((resetHandover!.expiresAt as Date).getTime(), 0);
+  assert.deepEqual(refundedTypes, []);
+  assert.equal(refundCreated, null);
 });

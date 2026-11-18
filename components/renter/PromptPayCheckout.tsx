@@ -19,8 +19,10 @@ import {
 
 export default function PromptPayCheckout({
   rentalId,
+  testMode = false,
 }: {
   rentalId: string;
+  testMode?: boolean;
 }) {
   const [
     state,
@@ -103,12 +105,13 @@ export default function PromptPayCheckout({
           />
 
           <p className="mt-4 text-sm font-semibold text-zinc-900">
-            Scan with your Thai banking app
+            {testMode ? "Test payment — no real money is transferred" : "Scan with your Thai banking app"}
           </p>
 
           <p className="mt-1 text-sm text-zinc-500">
-            After paying, click Check payment status.
+            {testMode ? "Mark this charge Successful in the Omise test dashboard, then click Check payment status." : "After paying, click Check payment status."}
           </p>
+          {testMode && <p className="mt-2 break-all text-xs text-zinc-500">Test charge: {state.chargeId}</p>}
 
           {state.expiresAt && (
             <p className="mt-2 text-xs text-zinc-400">

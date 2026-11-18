@@ -10,12 +10,16 @@ let bookingStatus = "APPROVED";
 let handoverStatus = "INITIATED";
 let expiresAt = new Date(Date.now() + 60_000);
 let attempts = 0;
+let paid = true;
+let openIssue = false;
 const notifications: { userId: string; type: string }[] = [];
 const audits: string[] = [];
 
 const rental = { id: "booking", renterId: "renter", ownerId: "owner" };
 const transaction = {
   $queryRaw: async () => [],
+  collectionIssue: { findFirst: async () => openIssue ? { id: "issue" } : null },
+  transaction: { findMany: async () => paid ? [{ type: "RENTAL_PAYMENT" }, { type: "DEPOSIT_HOLD" }] : [] },
   rental: { findUnique: async () => ({ ...rental, status: bookingStatus }) },
   handover: {
     updateMany: async ({ where }: {
@@ -78,6 +82,8 @@ function reset() {
   handoverStatus = "INITIATED";
   expiresAt = new Date(Date.now() + 60_000);
   attempts = 0;
+  paid = true;
+  openIssue = false;
   notifications.length = 0;
   audits.length = 0;
 }
@@ -123,6 +129,17 @@ test("limits repeated verification attempts", async () => {
   reset();
   attempts = 10;
   await assert.rejects(verifyHandover("booking", "COLLECTION", token), /Too many verification attempts/);
+  assert.equal(handoverStatus, "INITIATED");
+  assert.equal(notifications.length, 0);
+});
+
+test("collection QR cannot be scanned before payment or while an issue is open", async () => {
+  reset();
+  paid = false;
+  await assert.rejects(verifyHandover("booking", "COLLECTION", token), /must complete the PromptPay payment/);
+  paid = true;
+  openIssue = true;
+  await assert.rejects(verifyHandover("booking", "COLLECTION", token), /Resolve the reported device issue/);
   assert.equal(handoverStatus, "INITIATED");
   assert.equal(notifications.length, 0);
 });

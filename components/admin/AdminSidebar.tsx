@@ -12,6 +12,7 @@ import {
   ReceiptText,
   ShieldCheck,
   Store,
+  Tags,
   Users,
   X,
 } from "lucide-react";
@@ -34,6 +35,11 @@ type AdminSidebarProps = {
 };
 
 const navigation = [
+  {
+    label: "Categories",
+    href: "/admin/categories",
+    icon: Tags,
+  },
   {
     label: "Dashboard",
     href: "/admin/dashboard",

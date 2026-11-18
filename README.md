@@ -1,5 +1,12 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+Administrators can create and edit rental categories at `/admin/categories`,
+accessible from the admin sidebar and dashboard. Owners select these categories
+when creating or editing listings. Category names are checked for duplicates
+without regard to letter case, and changes are recorded in the admin audit log.
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for verified checks and outstanding launch blockers.
+
 ## Getting Started
 
 Configure the project before starting the development server:
@@ -55,9 +62,11 @@ expires. The renter opens the approved booking under Your bookings and scans
 the code with their camera or uploads a QR photo. Photos are decoded on the
 device; only the QR code is sent for verification. Camera access requires
 permission and HTTPS (or localhost). After scanning, the renter confirms
-receipt and the listed condition. This activates the rental and creates one
-pending rental payment for the rental amount plus deposit. No payment is
-charged: payment-provider integration is not implemented yet. The current
+receipt and the listed condition. Collection requires the rental payment and
+deposit to have been confirmed through Omise first; confirming receipt activates
+the rental without charging again. For the university demo, use Omise test mode,
+mark the test charge Successful in its dashboard, and click Check payment status
+in GoGoRent. No real-money payment is needed for that demonstration. The current
 collection flow does not require owner confirmation or condition photos.
 
 Before accepting a device, the renter can report an issue from the booking.
@@ -65,8 +74,8 @@ The owner reviews it and proposes a replacement, repair and reinspection, or
 cancellation; the renter must accept or decline. Collection and ordinary
 cancellation are blocked while an issue is unresolved. Replacement keeps the
 original price and deposit and requires a new collection QR. Cancellation
-does not move money; existing transactions are flagged for administrator
-review under the applicable cancellation policy.
+does not move money; in the current university demo it records simulated refunds
+for the completed rental payment and deposit. This is not a real provider refund.
 
 Issue photos and videos are optional. To enable them, create a **private**
 Supabase Storage bucket named `collection-issue-evidence`, with a file-size

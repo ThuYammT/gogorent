@@ -35,6 +35,8 @@ async function PaymentContent({
   const renter =
     await requireRenter();
 
+  const testMode = process.env.OMISE_SECRET_KEY?.startsWith("skey_test_") ?? false;
+
   const { id } =
     await params;
 
@@ -206,7 +208,7 @@ async function PaymentContent({
                   </p>
 
                   <p className="text-sm text-zinc-500">
-                    Pay using your Thai mobile banking app.
+                    {testMode ? "Omise test mode — simulated payment for demonstration." : "Pay using your Thai mobile banking app."}
                   </p>
                 </div>
               </div>
@@ -229,6 +231,7 @@ async function PaymentContent({
                 </div>
               ) : (
                 <PromptPayCheckout
+                  testMode={testMode}
                   rentalId={
                     rental.id
                   }

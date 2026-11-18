@@ -353,7 +353,7 @@ async function DashboardContent() {
             </h1>
 
             <p className="mt-2 text-sm text-zinc-500">
-              Here's an overview of
+              Here&apos;s an overview of
               your listings, rental
               activity and earnings.
             </p>
@@ -597,7 +597,7 @@ async function DashboardContent() {
 
                 <p className="mt-1 text-sm text-zinc-500">
                   Latest devices
-                  you've added
+                  you&apos;ve added
                 </p>
               </div>
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import {
   notFound,
@@ -54,6 +55,11 @@ async function PaymentContent({
           select: {
             name: true,
             emoji: true,
+            images: {
+              orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+              take: 1,
+              select: { url: true },
+            },
           },
         },
 
@@ -133,11 +139,16 @@ async function PaymentContent({
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
           <section className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm md:p-7">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-amber-50 text-3xl">
-                {rental
-                  .device
-                  .emoji ??
-                  "📦"}
+              <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-amber-50 text-3xl">
+                {rental.device.images[0]?.url ? (
+                  <Image
+                    src={rental.device.images[0].url}
+                    alt={rental.device.name}
+                    fill
+                    sizes="80px"
+                    className="object-cover"
+                  />
+                ) : (rental.device.emoji ?? "📦")}
               </div>
 
               <div>

@@ -1,6 +1,7 @@
 import {
   prisma,
 } from "@/lib/prisma";
+import { bangkokToday, bookingDateKey } from "@/lib/booking-meetings";
 
 import {
   hasCompletedBookingPayment,
@@ -181,6 +182,11 @@ export async function initiateHandover(
         rental.status,
         type,
       );
+
+      const overdue = rental.endDate && bookingDateKey(rental.endDate) < bangkokToday();
+      if (type === "RETURN" && !overdue && (!rental.returnTime || !rental.returnLocation)) {
+        throw new HandoverError("Save your return meeting time and location before generating the return QR.");
+      }
 
       if (
         type ===

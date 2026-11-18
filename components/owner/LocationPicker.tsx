@@ -51,6 +51,8 @@ type ReverseResult = {
 };
 
 type LocationPickerProps = {
+  fieldPrefix?: "pickup" | "return";
+  compact?: boolean;
   initialLocation?: string | null;
   initialLatitude?: number | null;
   initialLongitude?: number | null;
@@ -68,10 +70,14 @@ const DEFAULT_POSITION = {
 };
 
 export default function LocationPicker({
+  fieldPrefix,
+  compact = false,
   initialLocation,
   initialLatitude,
   initialLongitude,
 }: LocationPickerProps) {
+  const fieldName = (name: string) => fieldPrefix ? `${fieldPrefix}${name[0].toUpperCase()}${name.slice(1)}` : name;
+  const searchId = fieldPrefix ? `${fieldPrefix}LocationSearch` : "locationSearch";
   const hasExistingCoordinates =
     typeof initialLatitude ===
       "number" &&
@@ -228,6 +234,7 @@ export default function LocationPicker({
     latitude: number,
     longitude: number,
   ) {
+    setLocation(`${latitude.toFixed(5)}, ${longitude.toFixed(5)}`);
     setPosition({
       latitude,
       longitude,
@@ -400,7 +407,7 @@ export default function LocationPicker({
       {/* HIDDEN SERVER ACTION VALUES */}
       <input
         type="hidden"
-        name="location"
+        name={fieldName("location")}
         value={
           hasSelectedLocation
             ? location
@@ -410,7 +417,7 @@ export default function LocationPicker({
 
       <input
         type="hidden"
-        name="latitude"
+        name={fieldName("latitude")}
         value={
           hasSelectedLocation
             ? position.latitude
@@ -420,7 +427,7 @@ export default function LocationPicker({
 
       <input
         type="hidden"
-        name="longitude"
+        name={fieldName("longitude")}
         value={
           hasSelectedLocation
             ? position.longitude
@@ -431,7 +438,7 @@ export default function LocationPicker({
       {/* SEARCH */}
       <div>
         <label
-          htmlFor="locationSearch"
+          htmlFor={searchId}
           className="text-sm font-semibold text-zinc-800"
         >
           Search an area
@@ -442,7 +449,7 @@ export default function LocationPicker({
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-400" />
 
             <input
-              id="locationSearch"
+              id={searchId}
               type="text"
               value={searchQuery}
               onChange={(
@@ -542,7 +549,7 @@ export default function LocationPicker({
       </button>
 
       {/* MAP */}
-      <div className="relative mt-4 h-[390px] overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-100">
+      <div className={`relative mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-100 ${compact ? "h-[230px]" : "h-[390px]"}`}>
         <DynamicMap
           position={position}
           onSelect={
@@ -552,13 +559,13 @@ export default function LocationPicker({
 
         {!hasSelectedLocation && (
           <div className="pointer-events-none absolute left-1/2 top-4 z-[500] -translate-x-1/2 rounded-full bg-white px-4 py-2 text-xs font-semibold text-zinc-700 shadow-lg">
-            Click the map to choose your pickup location
+            Click the map to choose your {fieldPrefix === "return" ? "return" : "pickup"} location
           </div>
         )}
       </div>
 
       <p className="mt-3 text-xs leading-5 text-zinc-500">
-        Click anywhere on the map or drag the pin to adjust the pickup point.
+        Click anywhere on the map or drag the pin to adjust the meeting point.
       </p>
 
       {/* SELECTED LOCATION */}
@@ -588,7 +595,7 @@ export default function LocationPicker({
 
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-              Selected pickup area
+              Selected {fieldPrefix === "return" ? "return" : "pickup"} area
             </p>
 
             {resolving ? (
@@ -616,7 +623,7 @@ export default function LocationPicker({
               </>
             ) : (
               <p className="mt-1 text-sm text-zinc-500">
-                No pickup location selected yet.
+                No meeting location selected yet.
               </p>
             )}
           </div>

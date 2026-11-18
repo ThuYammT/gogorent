@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 import { confirmCollectionReceipt } from "@/app/renter/rentals/actions";
 
@@ -11,15 +12,20 @@ export default function CollectionConfirmation({
   rentalId: string;
   condition: string;
 }) {
+  const router = useRouter();
   const [state, action, pending] = useActionState(
     confirmCollectionReceipt.bind(null, rentalId),
     null,
   );
 
+  useEffect(() => {
+    if (state && "success" in state) router.refresh();
+  }, [state, router]);
+
   if (state && "success" in state) {
     return (
       <p role="status" className="text-sm font-semibold text-emerald-700">
-        Collection confirmed. Your rental is active and payment is pending. Online payment is not available yet.
+        Collection confirmed. Your rental is active. Please arrange your return time and meeting point below.
       </p>
     );
   }
@@ -41,8 +47,7 @@ export default function CollectionConfirmation({
         <span>I received the device and its accessories.</span>
       </label>
       <p className="mt-4 text-xs text-zinc-500">
-        Confirming activates the rental and creates a pending payment for the rental and deposit.
-        No payment will be charged yet.
+        Confirming activates the rental. Your rental payment and deposit are already confirmed. Next, arrange your return meeting with the owner.
       </p>
       <button
         type="submit"

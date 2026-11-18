@@ -27,6 +27,9 @@ import CollectionQrScanner from "@/components/renter/CollectionQrScanner";
 import CollectionConfirmation from "@/components/renter/CollectionConfirmation";
 import CollectionIssues from "@/components/renter/CollectionIssues";
 import ReturnQr from "@/components/renter/ReturnQr";
+import ReturnMeetingPlan from "@/components/renter/ReturnMeetingPlan";
+import BookingMeetupDetails from "@/components/bookings/BookingMeetupDetails";
+import { bangkokToday, bookingDateKey } from "@/lib/booking-meetings";
 
 import {
   ReportIssueForm,
@@ -182,6 +185,7 @@ async function RenterBookingContent({
   if (!rental) {
     notFound();
   }
+  const returnOverdue = bookingDateKey(rental.endDate) < bangkokToday();
 
   const hasOpenIssue =
     rental.collectionIssues.some(
@@ -428,6 +432,8 @@ async function RenterBookingContent({
             </div>
           </div>
 
+          <div className="border-t border-zinc-100 px-6 py-5 md:px-7"><BookingMeetupDetails rental={rental} /></div>
+
           {rental.rejectReason && (
             <div className="mx-6 mb-6 rounded-xl border border-red-100 bg-red-50 p-4 text-sm text-red-700 md:mx-7">
               <p className="font-semibold">
@@ -515,6 +521,12 @@ async function RenterBookingContent({
           {rental.status ===
             "ACTIVE" && (
             <div className="border-t border-zinc-100 px-6 py-6 md:px-7">
+              {!returnQrScanned && !returnOverdue && <ReturnMeetingPlan
+                key={rental.updatedAt.toISOString()}
+                rentalId={rental.id} date={bookingDateKey(rental.endDate)}
+                initial={{ time: rental.returnTime, location: rental.returnLocation ?? rental.pickupLocation, latitude: rental.returnLatitude ?? rental.pickupLatitude, longitude: rental.returnLongitude ?? rental.pickupLongitude, instructions: rental.returnInstructions }}
+              />}
+              {returnOverdue && !returnQrScanned && <p className="mb-4 text-sm text-amber-800">Your booked return date has passed. Contact the owner to arrange the meeting. You can still use the return QR when you meet.</p>}
               {returnQrScanned ? (
                 <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
                   <p className="font-semibold">
@@ -525,12 +537,15 @@ async function RenterBookingContent({
                     The owner now needs to confirm the returned device.
                   </p>
                 </div>
-              ) : (
+              ) : returnOverdue || rental.returnTime && rental.returnLocation ? (
                 <ReturnQr
+                  key={rental.updatedAt.toISOString()}
                   rentalId={
                     rental.id
                   }
                 />
+              ) : (
+                <p className="text-sm text-zinc-500">Save your return meeting above before generating the return QR.</p>
               )}
             </div>
           )}

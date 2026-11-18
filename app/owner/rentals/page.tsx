@@ -25,6 +25,7 @@ import {
 
 import CollectionQr from "@/components/owner/CollectionQr";
 import ReturnQrScanner from "@/components/owner/ReturnQrScanner";
+import BookingMeetupDetails from "@/components/bookings/BookingMeetupDetails";
 
 type RentalsPageProps = {
   searchParams: Promise<{
@@ -657,6 +658,7 @@ async function RentalsContent({
                           </div>
                         )}
                       </div>
+                      <div className="lg:col-span-5"><BookingMeetupDetails rental={rental} /></div>
                     </div>
                   );
                 },

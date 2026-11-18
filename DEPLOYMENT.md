@@ -5,14 +5,15 @@ Reviewed on 2026-11-18. Code checks pass for a university demo deployment using 
 ## Verified
 
 - Production Next.js build and TypeScript compilation pass.
-- All 44 automated tests pass, including independent tab sessions, administrator listing removal, and authorization checks. Updated stale collection/handover fixtures to match payment-before-collection and simulated cancellation refunds. Added coverage for partial/unpaid bookings, issue blocking, fresh repair QR, repeated payment confirmation, pending/failed charges, and amount/currency validation.
+- All 55 automated tests pass, including pickup/return meeting validation, meeting authorization, return QR planning requirements and overdue returns, independent tab sessions, administrator listing removal, and payment/handover regression checks.
 - Login and all registration screens share the homepage’s ivory, sage, and amber styling. Admins can open an item under Listings and remove it with a required reason. This hides it publicly, marks it Rejected for the owner, sends an owner notification, and retains rental history. Unresolved bookings and proposed replacements block removal until resolved. No database migration is required.
 - Admin and owner portals share the same ivory/sage theme across dashboards, navigation, forms, cards, and tables. Navigation retains notification counts and active states; mobile menus support Escape, focus containment, and background scroll locking. Status colors and operational actions remain intact.
 - ESLint passes with zero errors and 16 existing warnings, mainly image optimization and unused parameters.
-- Prisma schema validates; the configured database connects and all 10 migrations are applied.
+- Prisma schema validates; the configured database connects and all 11 migrations are applied, including `20261118140000_booking_meetings`.
 - Production dependency audit reports no known vulnerabilities.
 - Admin category management is available at `/admin/categories`, with creation, editing, optional icons, duplicate checks, administrator authorization, and atomic audit logs. Owners use these categories in new and edited listings. No schema migration is needed for this feature.
 - The build command now generates the ignored Prisma client before compiling, supporting clean deployments.
+- New rental requests include a pickup time and map meeting point for owner review. After confirmed collection, a popup collects the return time and map meeting point on the existing end date. Both parties see the plans; return changes notify the owner and expire unscanned return QRs. Times are explicitly Bangkok (UTC+7). Past-due rentals retain return QR access. Browser-tested with disposable users and rentals; all temporary data was removed.
 
 ## Demo deployment and rehearsal
 
@@ -28,6 +29,8 @@ Reviewed on 2026-11-18. Code checks pass for a university demo deployment using 
 - Confirm an active admin account and prepared owner/renter accounts. Use demonstration data and explain that payment confirmation and cancellation refunds are simulated; live payment activation and real settlement/refund operations are deferred.
 
 ## Release commands
+
+The configured database already has the additive meeting migration. If a deployment uses a different database, apply its pending migrations before switching to this version; old bookings have nullable meeting fields and remain readable.
 
 ```sh
 npm ci

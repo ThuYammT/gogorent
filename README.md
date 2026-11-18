@@ -54,6 +54,16 @@ When an owner submits a new device, each active administrator receives an
 in-app notification linking to the listing review. Administrators can find
 their notifications and mark them as read in the admin sidebar.
 
+Rental requests now include a proposed pickup time and map meeting point on the
+start date, plus optional meeting instructions. The owner sees these details
+before approving. After the renter confirms collection, a popup asks for the
+return time and meeting point on the booking's existing end date. Both users can
+view the plans, and the owner receives a notification when the return plan is
+saved or changed. All meeting times use Bangkok time (UTC+7). Changing a return
+plan expires any unscanned return QR; overdue rentals can still complete return.
+Apply the `20261118140000_booking_meetings` migration before deploying this code
+to a different database. Existing bookings remain readable.
+
 Owners can generate a collection QR for an approved booking on the Rentals
 page. They can show the code or download it as a PNG to share with the
 booking's renter. The code expires after five minutes even if saved. If the

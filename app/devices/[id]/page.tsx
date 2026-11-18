@@ -371,6 +371,7 @@ async function DeviceDetailContent({
               ) : session.role ===
                 "RENTER" ? (
                 <RentalRequestForm
+                  pickupDefaults={{ location: device.location, latitude: device.latitude, longitude: device.longitude }}
                   deviceId={
                     device.id
                   }

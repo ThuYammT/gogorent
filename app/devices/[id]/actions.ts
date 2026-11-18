@@ -19,6 +19,7 @@ import {
 import {
   requireRenter,
 } from "@/lib/session";
+import { bangkokToday, readMeetingPlan, MeetingPlanError } from "@/lib/booking-meetings";
 
 export type RentalRequestState = {
   error?: string;
@@ -36,15 +37,11 @@ function readDate(
     return null;
   }
 
-  const date =
-    new Date(
-      `${text}T00:00:00`,
-    );
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const date = new Date(`${text}T00:00:00Z`);
 
   if (
-    Number.isNaN(
-      date.getTime(),
-    )
+    Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== text
   ) {
     return null;
   }
@@ -98,15 +95,7 @@ export async function createRentalRequest(
     };
   }
 
-  const today =
-    new Date();
-
-  today.setHours(
-    0,
-    0,
-    0,
-    0,
-  );
+  const today = new Date(`${bangkokToday()}T00:00:00Z`);
 
   if (
     startDate < today
@@ -141,6 +130,13 @@ export async function createRentalRequest(
       error:
         "Invalid rental period.",
     };
+  }
+
+  let pickupPlan;
+  try {
+    pickupPlan = readMeetingPlan(formData, "pickup", startDate);
+  } catch (error) {
+    return { error: error instanceof MeetingPlanError ? error.message : "Check your pickup meeting details." };
   }
 
   const rental =
@@ -266,6 +262,11 @@ export async function createRentalRequest(
                 renterNote:
                   renterNote ||
                   null,
+                pickupTime: pickupPlan.time,
+                pickupLocation: pickupPlan.location,
+                pickupLatitude: pickupPlan.latitude,
+                pickupLongitude: pickupPlan.longitude,
+                pickupInstructions: pickupPlan.instructions,
               },
             },
           );

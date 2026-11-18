@@ -14,6 +14,8 @@ import {
   createRentalRequest,
   type RentalRequestState,
 } from "@/app/devices/[id]/actions";
+import MeetingFields, { type MeetingDefaults } from "@/components/bookings/MeetingFields";
+import { bangkokToday } from "@/lib/booking-meetings";
 
 const initialState: RentalRequestState =
   {};
@@ -22,12 +24,14 @@ type RentalRequestFormProps = {
   deviceId: string;
   pricePerDay: number;
   depositAmount: number;
+  pickupDefaults?: MeetingDefaults;
 };
 
 export default function RentalRequestForm({
   deviceId,
   pricePerDay,
   depositAmount,
+  pickupDefaults,
 }: RentalRequestFormProps) {
   const action =
     createRentalRequest.bind(
@@ -84,10 +88,7 @@ export default function RentalRequestForm({
     rentalAmount +
     depositAmount;
 
-  const today =
-    new Date()
-      .toISOString()
-      .slice(0, 10);
+  const today = bangkokToday();
 
   return (
     <form
@@ -154,6 +155,12 @@ export default function RentalRequestForm({
           />
         </div>
       </div>
+
+      <section className="rounded-xl border border-zinc-200 bg-zinc-50/50 p-4">
+        <h3 className="text-sm font-semibold text-zinc-900">Propose a pickup meeting</h3>
+        <p className="mb-4 mt-2 text-xs leading-5 text-zinc-500">Choose the time and place you can collect the item on the start date. The owner reviews these details before accepting.</p>
+        <MeetingFields prefix="pickup" date={start} initial={pickupDefaults} />
+      </section>
 
       <div>
         <label

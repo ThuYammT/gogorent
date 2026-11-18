@@ -18,6 +18,7 @@ import {
 
 import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/session";
+import BookingMeetupDetails from "@/components/bookings/BookingMeetupDetails";
 
 async function RequestsContent() {
   const owner =
@@ -263,6 +264,7 @@ async function RequestsContent() {
                           </div>
                         </div>
 
+                        <div className="mt-5"><BookingMeetupDetails rental={rental} pickupOnly /></div>
                         {rental.renterNote && (
                           <div className="mt-6 flex gap-3 rounded-xl bg-zinc-50 p-4">
                             <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />

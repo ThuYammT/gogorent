@@ -230,24 +230,34 @@ model DeviceImage {
 }
 
 model Rental {
-  id            String       @id @default(cuid())
-  deviceId      String
-  renterId      String
-  ownerId       String
-  startDate     DateTime
-  endDate       DateTime
-  totalDays     Int
-  pricePerDay   Decimal      @db.Decimal(10, 2)
-  rentalAmount  Decimal      @db.Decimal(10, 2)
-  depositAmount Decimal      @db.Decimal(10, 2)
-  totalAmount   Decimal      @db.Decimal(10, 2)
-  status        RentalStatus @default(REQUESTED)
-  renterNote    String?
-  rejectReason  String?
-  pickedUpAt    DateTime?
-  returnedAt    DateTime?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  id                 String       @id @default(cuid())
+  deviceId           String
+  renterId           String
+  ownerId            String
+  startDate          DateTime
+  endDate            DateTime
+  totalDays          Int
+  pricePerDay        Decimal      @db.Decimal(10, 2)
+  rentalAmount       Decimal      @db.Decimal(10, 2)
+  depositAmount      Decimal      @db.Decimal(10, 2)
+  totalAmount        Decimal      @db.Decimal(10, 2)
+  status             RentalStatus @default(REQUESTED)
+  renterNote         String?
+  pickupTime         String?
+  pickupLocation     String?
+  pickupLatitude     Float?
+  pickupLongitude    Float?
+  pickupInstructions String?
+  returnTime         String?
+  returnLocation     String?
+  returnLatitude     Float?
+  returnLongitude    Float?
+  returnInstructions String?
+  rejectReason       String?
+  pickedUpAt         DateTime?
+  returnedAt         DateTime?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
 
   device Device @relation(fields: [deviceId], references: [id])
   renter User   @relation("RentalRenter", fields: [renterId], references: [id])

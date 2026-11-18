@@ -5,7 +5,8 @@ Reviewed on 2026-11-18. Code checks pass for a university demo deployment using 
 ## Verified
 
 - Production Next.js build and TypeScript compilation pass.
-- All 35 automated tests pass. Updated stale collection/handover fixtures to match payment-before-collection and simulated cancellation refunds. Added coverage for partial/unpaid bookings, issue blocking, fresh repair QR, repeated payment confirmation, pending/failed charges, and amount/currency validation.
+- All 40 automated tests pass, including administrator listing removal and authorization checks. Updated stale collection/handover fixtures to match payment-before-collection and simulated cancellation refunds. Added coverage for partial/unpaid bookings, issue blocking, fresh repair QR, repeated payment confirmation, pending/failed charges, and amount/currency validation.
+- Login and all registration screens share the homepage’s ivory, sage, and amber styling. Admins can open an item under Listings and remove it with a required reason. This hides it publicly, marks it Rejected for the owner, sends an owner notification, and retains rental history. Unresolved bookings and proposed replacements block removal until resolved. No database migration is required.
 - ESLint passes with zero errors and 16 existing warnings, mainly image optimization and unused parameters.
 - Prisma schema validates; the configured database connects and all 10 migrations are applied.
 - Production dependency audit reports no known vulnerabilities.

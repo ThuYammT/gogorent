@@ -19,6 +19,7 @@ async function FavoritesContent() {
     await prisma.favorite.findMany({
       where: {
         userId: renter.id,
+        device: { status: { notIn: ["REJECTED", "PENDING_APPROVAL"] } },
       },
       include: {
         device: {

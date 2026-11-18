@@ -1,4 +1,4 @@
-import {
+﻿import {
   Suspense,
 } from "react";
 
@@ -13,14 +13,15 @@ import {
   MapPin,
   ShieldCheck,
   UserRound,
-  X,
+
 } from "lucide-react";
 
 import {
   approveListing,
-  rejectListing,
+
 } from "./actions";
 
+import RemoveListingForm from "@/components/admin/RemoveListingForm";
 import { requireAdmin } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
 
@@ -92,12 +93,6 @@ async function ListingContent({
 
   const approveAction =
     approveListing.bind(
-      null,
-      device.id,
-    );
-
-  const rejectAction =
-    rejectListing.bind(
       null,
       device.id,
     );
@@ -193,7 +188,7 @@ async function ListingContent({
               ) : (
                 <div className="flex min-h-[350px] items-center justify-center bg-zinc-50 text-8xl">
                   {device.emoji ??
-                    "📦"}
+                    "ðŸ“¦"}
                 </div>
               )}
             </section>
@@ -318,7 +313,7 @@ async function ListingContent({
                   </span>
 
                   <b>
-                    ฿
+                    à¸¿
                     {Number(
                       device.pricePerDay,
                     ).toLocaleString()}
@@ -331,7 +326,7 @@ async function ListingContent({
                   </span>
 
                   <b>
-                    ฿
+                    à¸¿
                     {Number(
                       device.depositAmount,
                     ).toLocaleString()}
@@ -353,6 +348,7 @@ async function ListingContent({
               </div>
             </section>
 
+            {device.status !== "REJECTED" && <RemoveListingForm deviceId={device.id} pendingReview={device.status === "PENDING_APPROVAL"} />}
             {/* REVIEW */}
             {device.status ===
               "PENDING_APPROVAL" && (
@@ -386,36 +382,7 @@ async function ListingContent({
                   </button>
                 </form>
 
-                <div className="my-5 border-t border-zinc-100" />
 
-                <form
-                  action={
-                    rejectAction
-                  }
-                >
-                  <label
-                    htmlFor="reason"
-                    className="text-sm font-medium text-zinc-700"
-                  >
-                    Rejection reason
-                  </label>
-
-                  <textarea
-                    id="reason"
-                    name="reason"
-                    rows={4}
-                    placeholder="Explain what the owner should change..."
-                    className="mt-2 w-full resize-none rounded-lg border border-zinc-200 px-3 py-2.5 text-sm outline-none focus:border-zinc-400"
-                  />
-
-                  <button
-                    type="submit"
-                    className="mt-3 flex w-full items-center justify-center gap-2 rounded-lg border border-red-200 px-4 py-3 text-sm font-semibold text-red-600 hover:bg-red-50"
-                  >
-                    <X className="h-4 w-4" />
-                    Reject listing
-                  </button>
-                </form>
               </section>
             )}
 

@@ -121,6 +121,14 @@ async function OwnerDeviceContent({
     notFound();
   }
 
+  const rejection = device.status === "REJECTED"
+    ? await prisma.notification.findFirst({
+        where: { userId: owner.id, deviceId: device.id, type: "LISTING_REJECTED" },
+        orderBy: { createdAt: "desc" },
+        select: { message: true },
+      })
+    : null;
+
   const primaryImage =
     device.images[0];
 
@@ -136,6 +144,12 @@ async function OwnerDeviceContent({
 
   return (
     <>
+      {device.status === "REJECTED" && (
+        <div className="mx-6 mt-6 rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-800 md:mx-10" role="status">
+          <p className="font-semibold">This item is rejected and hidden from the marketplace.</p>
+          <p className="mt-2 leading-6">{rejection?.message ?? "Review and update your listing, then submit it for administrator review again."}</p>
+        </div>
+      )}
       <header className="border-b border-zinc-200 bg-white px-6 py-7 md:px-10 xl:px-12">
         <div className="mx-auto max-w-[1400px]">
           <Link

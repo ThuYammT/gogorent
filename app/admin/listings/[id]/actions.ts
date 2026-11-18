@@ -1,169 +1,41 @@
-"use server";
+﻿"use server";
 
-import {
-  revalidatePath,
-} from "next/cache";
-
+import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-auth";
 import { prisma } from "@/lib/prisma";
+import { ListingModerationError, removeMarketplaceListing } from "@/lib/listing-moderation";
 
-export async function approveListing(
-  deviceId: string,
-) {
-  await requireAdmin();
-
-  const device =
-    await prisma.device.findUnique({
-      where: {
-        id: deviceId,
-      },
-    });
-
-  if (!device) {
-    throw new Error(
-      "Listing not found.",
-    );
-  }
-
-  if (
-    device.status !==
-      "PENDING_APPROVAL"
-  ) {
-    throw new Error(
-      "Only pending listings can be approved.",
-    );
-  }
-
-  await prisma.$transaction([
-    prisma.device.update({
-      where: {
-        id:
-          device.id,
-      },
-
-      data: {
-        status:
-          "AVAILABLE",
-      },
-    }),
-
-    prisma.notification.create({
-      data: {
-        userId:
-          device.ownerId,
-
-        title:
-          "Listing approved",
-
-        message:
-          `Your listing "${device.name}" has been approved and is now available on the marketplace.`,
-
-        isRead:
-          false,
-      },
-    }),
-  ]);
-
-  revalidatePath(
-    `/admin/listings/${deviceId}`,
-  );
-
-  revalidatePath(
-    "/admin/listings",
-  );
-
-  revalidatePath(
-    "/admin/dashboard",
-  );
-
-  revalidatePath(
-    "/owner/devices",
-  );
-
-  revalidatePath("/");
+function refreshListings(deviceId: string) {
+  for (const path of ["/", "/devices", `/devices/${deviceId}`, "/admin/listings", `/admin/listings/${deviceId}`, "/admin/dashboard", "/admin/audit-logs", "/owner/devices", `/owner/devices/${deviceId}`, `/owner/devices/${deviceId}/edit`, "/owner/dashboard", "/owner/notifications", "/renter/favorites"]) revalidatePath(path);
 }
 
-export async function rejectListing(
-  deviceId: string,
-  formData: FormData,
-) {
-  await requireAdmin();
+export async function approveListing(deviceId: string) {
+  const admin = await requireAdmin();
+  await prisma.$transaction(async tx => {
+    const device = await tx.device.findUnique({ where: { id: deviceId } });
+    if (!device) throw new Error("Listing not found.");
+    const updated = await tx.device.updateMany({ where: { id: deviceId, status: "PENDING_APPROVAL" }, data: { status: "AVAILABLE" } });
+    if (updated.count !== 1) throw new Error("Only pending listings can be approved. Refresh to see the latest status.");
+    await tx.notification.create({ data: {
+      userId: device.ownerId, deviceId, type: "LISTING_APPROVED", title: "Listing approved",
+      message: `Your listing "${device.name}" has been approved and is now available on the marketplace.`,
+    } });
+    await tx.auditLog.create({ data: { userId: admin.id, action: "APPROVE_LISTING", entity: "Device", entityId: deviceId } });
+  });
+  refreshListings(deviceId);
+}
 
-  const reason =
-    String(
-      formData.get(
-        "reason",
-      ) ?? "",
-    ).trim();
+export type RemoveListingState = { error?: string; success?: string };
 
-  const device =
-    await prisma.device.findUnique({
-      where: {
-        id:
-          deviceId,
-      },
-    });
-
-  if (!device) {
-    throw new Error(
-      "Listing not found.",
-    );
+export async function removeListing(deviceId: string, _previous: RemoveListingState, formData: FormData): Promise<RemoveListingState> {
+  const admin = await requireAdmin();
+  const reason = formData.get("reason");
+  if (typeof reason !== "string") return { error: "Provide a reason for the owner." };
+  try {
+    await prisma.$transaction(tx => removeMarketplaceListing(tx, { deviceId, adminId: admin.id, reason }));
+  } catch (error) {
+    return { error: error instanceof ListingModerationError ? error.message : "Could not remove this listing. Please try again." };
   }
-
-  if (
-    device.status !==
-      "PENDING_APPROVAL"
-  ) {
-    throw new Error(
-      "Only pending listings can be rejected.",
-    );
-  }
-
-  await prisma.$transaction([
-    prisma.device.update({
-      where: {
-        id:
-          device.id,
-      },
-
-      data: {
-        status:
-          "REJECTED",
-      },
-    }),
-
-    prisma.notification.create({
-      data: {
-        userId:
-          device.ownerId,
-
-        title:
-          "Listing needs changes",
-
-        message:
-          reason
-            ? `Your listing "${device.name}" was not approved. Reason: ${reason}`
-            : `Your listing "${device.name}" was not approved. Please review and update the listing before submitting it again.`,
-
-        isRead:
-          false,
-      },
-    }),
-  ]);
-
-  revalidatePath(
-    `/admin/listings/${deviceId}`,
-  );
-
-  revalidatePath(
-    "/admin/listings",
-  );
-
-  revalidatePath(
-    "/admin/dashboard",
-  );
-
-  revalidatePath(
-    "/owner/devices",
-  );
+  refreshListings(deviceId);
+  return { success: "Listing removed from the marketplace. The owner has been notified and the item is marked Rejected." };
 }

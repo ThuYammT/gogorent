@@ -148,6 +148,8 @@ export async function createRentalRequest(
       async (
         transaction,
       ) => {
+        // Coordinate new booking requests with administrator listing removal.
+        await transaction.$queryRaw`SELECT "id" FROM "Device" WHERE "id" = ${deviceId} FOR UPDATE`;
         const device =
           await transaction.device.findFirst(
             {

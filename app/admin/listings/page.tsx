@@ -286,7 +286,7 @@ async function ListingsContent({
           </h1>
 
           <p className="mt-2 text-sm text-zinc-500">
-            Review and manage devices submitted to the marketplace.
+            Open a listing to approve it or remove it from the marketplace. Removed items are marked Rejected for the owner.
           </p>
         </div>
       </header>
@@ -441,6 +441,7 @@ async function ListingsContent({
                       </div>
 
                       <div className="shrink-0 md:text-right">
+                        <p className="mb-2 text-xs font-semibold text-zinc-700">Manage listing →</p>
                         <p className="font-semibold">
                           ฿
                           {Number(

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 
 import {
   notFound,
@@ -122,6 +123,11 @@ async function RenterBookingContent({
             emoji: true,
             location: true,
             condition: true,
+            images: {
+              orderBy: [{ isPrimary: "desc" }, { createdAt: "asc" }],
+              take: 1,
+              select: { url: true },
+            },
           },
         },
 
@@ -295,9 +301,16 @@ async function RenterBookingContent({
           {/* HEADER */}
           <div className="flex flex-col justify-between gap-5 border-b border-zinc-100 p-6 md:flex-row md:items-start md:p-7">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-amber-50 text-3xl">
-                {rental.device.emoji ??
-                  "📦"}
+              <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-amber-50 text-3xl">
+                {rental.device.images[0]?.url ? (
+                  <Image
+                    src={rental.device.images[0].url}
+                    alt={rental.device.name}
+                    fill
+                    sizes="80px"
+                    className="object-cover"
+                  />
+                ) : (rental.device.emoji ?? "📦")}
               </div>
 
               <div>
